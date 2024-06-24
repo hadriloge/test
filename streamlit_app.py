@@ -14,13 +14,18 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
     color = ('b', 'g', 'r')
     fig, ax = plt.subplots(1, 3, figsize=(15, 5))
     results = []
-
+    
     for i, col in enumerate(color):
         hist = cv2.calcHist([image], [i], None, [256], [0, 256])
         hist = hist.flatten()
         ax[i].plot(hist, color=col)
         ax[i].set_xlim([0, 255])
         ax[i].set_ylim([0, np.max(hist)])  # Set y-axis to the max of the histogram
+        
+        # Adding gradient
+        gradient = np.linspace(0, 1, 256).reshape(1, -1).repeat(10, axis=0)
+        ax[i].imshow(gradient, aspect='auto', extent=[0, 255, -500, 0], cmap=plt.get_cmap(col.capitalize()))
+        ax[i].set_axis_off()
 
         shift_left_value, shift_right_value = detect_shift(hist)
         spectrum_issue = detect_spectrum_issue(hist)
