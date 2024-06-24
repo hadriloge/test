@@ -4,7 +4,6 @@ import cv2
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image, ImageEnhance
-from io import BytesIO
 
 # Function to load an image from a file
 def load_image(image_file):
@@ -151,19 +150,11 @@ def apply_extra_enhancements(image):
     contrasted_image = enhancer.enhance(1.1)
     return np.array(contrasted_image)
 
-# Function to download the processed image
-def get_image_download_link(img, filename, text):
-    buffered = BytesIO()
-    img.save(buffered, format="PNG")
-    img_str = buffered.getvalue()
-    href = f'<a href="data:file/png;base64,{base64.b64encode(img_str).decode()}" download="{filename}">{text}</a>'
-    return href
-
 def main():
     st.set_page_config(layout="centered")
     st.title("Image Histogram Adjustment App")
 
-    steps = ["Upload Image", "Analysis", "Adjust Significant Values", "Auto-Adjust Brightness", "Apply Extra Enhancements", "Download Image"]
+    steps = ["Upload Image", "Analysis", "Adjust Significant Values", "Auto-Adjust Brightness", "Apply Extra Enhancements"]
     
     if "step" not in st.session_state:
         st.session_state.step = 0
@@ -232,14 +223,6 @@ def main():
                 if st.button('Apply Extra Enhancements'):
                     enhanced_image = apply_extra_enhancements(st.session_state.brightness_corrected_image)
                     st.image(enhanced_image, caption='Enhanced Image', use_column_width=True)
-                    st.session_state.enhanced_image = enhanced_image
-
-        # Step 6: Download Image
-        if st.session_state.step == 5:
-            if "enhanced_image" in st.session_state:
-                st.header("6. Download Image")
-                pil_image = Image.fromarray(st.session_state.enhanced_image)
-                st.markdown(get_image_download_link(pil_image, "enhanced_image.png", "Download Enhanced Image"), unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
