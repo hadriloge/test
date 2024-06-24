@@ -2,7 +2,7 @@ import streamlit as st
 import numpy as np
 import cv2
 from matplotlib import pyplot as plt
-from PIL import Image
+from PIL import Image, ImageEnhance
 
 # Function to load an image from a file
 def load_image(image_file):
@@ -93,52 +93,71 @@ def apply_curve_adjustments(image, sliders):
 
     return adjusted_image
 
-# Function to dynamically correct exposure using sliders
-def adjust_sliders_for_exposure(results, sliders):
+# Function to automatically adjust brightness based on analysis
+def auto_adjust_brightness(image, results):
+    hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+    h, s, v = cv2.split(hsv_image)
+
     for i, result in enumerate(results):
         if result['spectrum_issue'] == "Underexposure":
-            sliders[i] = (sliders[i][0], min(sliders[i][1] + 20, 255))
+            v = cv2.add(v, 20)
         elif result['spectrum_issue'] == "Overexposure":
-            sliders[i] = (max(sliders[i][0] - 20, 0), sliders[i][1])
-    return sliders
+            v = cv2.subtract(v, 20)
+
+    hsv_image = cv2.merge([h, s, v])
+    corrected_image = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2RGB)
+
+    return corrected_image
+
+# Function to apply extra enhancements (sharpening and contrast)
+def apply_extra_enhancements(image):
+    pil_image = Image.fromarray(image)
+    enhancer = ImageEnhance.Sharpness(pil_image)
+    sharpened_image = enhancer.enhance(1.1)
+    enhancer = ImageEnhance.Contrast(sharpened_image)
+    contrasted_image = enhancer.enhance(1.1)
+    return np.array(contrasted_image)
 
 def main():
     st.title("Image Histogram Adjustment App")
 
+    # Step 1: Upload an image
     uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
     if uploaded_file is not None:
         image = load_image(uploaded_file)
         st.image(image, caption='Uploaded Image', use_column_width=True)
 
+        # Step 2: Analysis
         st.header("RGB Histograms and Analysis")
         results = analyze_and_plot_histograms(image)
 
-        # Display sliders for each channel
+        # Step 3: Significant value sliders
         st.header("Adjust RGB Curves")
         sliders = []
         for i, col in enumerate(('R', 'G', 'B')):
             left_val, right_val = st.slider(f'{col} Channel', 0, 255, (results[i]['shift_left_value'] or 0, results[i]['shift_right_value'] or 255))
             sliders.append((left_val, right_val))
 
-        # Adjust sliders dynamically for exposure correction
-        corrected_sliders = adjust_sliders_for_exposure(results, sliders)
-
-        st.header("Adjusted Sliders for Exposure Correction")
-        for i, col in enumerate(('R', 'G', 'B')):
-            st.write(f"{col} Channel Adjusted Slider: {corrected_sliders[i]}")
-
         if st.button('Apply Adjustments'):
             adjusted_image = apply_curve_adjustments(image, sliders)
             st.image(adjusted_image, caption='Adjusted Image', use_column_width=True)
             st.header("Adjusted RGB Histograms and Analysis")
-            analyze_and_plot_histograms(adjusted_image, corrected=True, sliders=sliders)
+            results = analyze_and_plot_histograms(adjusted_image, corrected=True, sliders=sliders)
 
-        if st.button('Apply Exposure Correction'):
-            exposure_corrected_image = apply_curve_adjustments(image, corrected_sliders)
-            st.image(exposure_corrected_image, caption='Exposure Corrected Image', use_column_width=True)
-            st.header("Exposure Corrected RGB Histograms and Analysis")
-            analyze_and_plot_histograms(exposure_corrected_image, corrected=True, sliders=corrected_sliders)
+            # Step 4: Auto-adjust brightness
+            if st.button('Auto-Adjust Brightness'):
+                brightness_corrected_image = auto_adjust_brightness(adjusted_image, results)
+                st.image(brightness_corrected_image, caption='Brightness Corrected Image', use_column_width=True)
+                st.header("Brightness Corrected RGB Histograms and Analysis")
+                results = analyze_and_plot_histograms(brightness_corrected_image, corrected=True, sliders=sliders)
+
+                # Step 5: Apply extra enhancements
+                if st.button('Apply Extra Enhancements'):
+                    enhanced_image = apply_extra_enhancements(brightness_corrected_image)
+                    st.image(enhanced_image, caption='Enhanced Image', use_column_width=True)
+                    st.header("Enhanced RGB Histograms and Analysis")
+                    analyze_and_plot_histograms(enhanced_image, corrected=True, sliders=sliders)
 
 if __name__ == "__main__":
     main()
