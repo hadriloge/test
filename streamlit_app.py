@@ -71,8 +71,8 @@ def detect_shift(hist):
             break
 
     # Detect significant spikes based on change from one bin to another
-    threshold = 0.2 * np.max(hist)  # Lowering the threshold for spike detection
-    for i in range(1, len(hist) - 1):
+    threshold = 0.1 * np.max(hist)  # Lowering the threshold for spike detection
+    for i in range(1, len(hist)):
         if abs(hist[i] - hist[i - 1]) > threshold and hist[i] > 3000:
             significant_spikes.append((i, hist[i]))
 
@@ -126,6 +126,18 @@ def apply_extra_enhancements(image):
     enhancer = ImageEnhance.Contrast(sharpened_image)
     contrasted_image = enhancer.enhance(1.1)
     return np.array(contrasted_image)
+
+# Function to remove spikes in the histogram
+def remove_spikes(image, results):
+    adjusted_image = image.copy()
+    color = ('b', 'g', 'r')
+
+    for i in range(3):
+        spikes = results[i]['significant_spikes']
+        for spike in spikes:
+            adjusted_image[:, :, i][adjusted_image[:, :, i] == spike[0]] = spike[0] - 1  # Shift the spike value to the left
+
+    return adjusted_image
 
 def main():
     st.set_page_config(layout="centered")
@@ -196,6 +208,14 @@ def main():
                 if st.button('Apply Extra Enhancements'):
                     enhanced_image = apply_extra_enhancements(st.session_state.brightness_corrected_image)
                     st.image(enhanced_image, caption='Enhanced Image', use_column_width=True)
+
+        # Step 6: Remove Spikes
+        if st.session_state.step == 5:
+            if "brightness_corrected_image" in st.session_state:
+                st.header("6. Remove Spikes")
+                if st.button('Remove Spikes'):
+                    spike_removed_image = remove_spikes(st.session_state.brightness_corrected_image, st.session_state.results)
+                    st.image(spike_removed_image, caption='Spikes Removed Image', use_column_width=True)
 
 if __name__ == "__main__":
     main()
