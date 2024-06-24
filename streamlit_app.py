@@ -122,7 +122,7 @@ def main():
     st.set_page_config(layout="centered")
     st.title("Image Histogram Adjustment App")
 
-    steps = ["Upload Image", "Analysis", "Adjust Significant Values", "Auto-Adjust Brightness", "Apply Extra Enhancements"]
+    steps = ["Upload Image", "Analysis", "Auto-Adjust Brightness", "Apply Extra Enhancements"]
     
     if "step" not in st.session_state:
         st.session_state.step = 0
