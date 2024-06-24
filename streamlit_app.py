@@ -15,12 +15,19 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
     fig, ax = plt.subplots(1, 3, figsize=(15, 5))
     results = []
 
+    max_hist_value = 0  # Initialize the max histogram value to set y-axis limits
+
+    for i, col in enumerate(color):
+        hist = cv2.calcHist([image], [i], None, [256], [0, 256])
+        hist = hist.flatten()
+        max_hist_value = max(max_hist_value, np.max(hist))  # Update the max histogram value
+
     for i, col in enumerate(color):
         hist = cv2.calcHist([image], [i], None, [256], [0, 256])
         hist = hist.flatten()
         ax[i].bar(range(256), hist, color=col)
         ax[i].set_xlim([0, 255])
-        ax[i].set_ylim([0, np.max(hist)])  # Set y-axis to the max of the histogram
+        ax[i].set_ylim([0, max_hist_value])  # Set y-axis to the max histogram value
 
         shift_left_value, shift_right_value, significant_spikes = detect_shift(hist)
         spectrum_issue = detect_spectrum_issue(hist)
@@ -83,9 +90,12 @@ def detect_shift(hist):
             shift_right_value = i
             break
 
-    # Detect significant spikes based on change from one bin to another
+    # Detect significant spikes based on change from one bin to another, within 25 bins from the extremities
     threshold = 0.1 * np.max(hist)  # Lowering the threshold for spike detection
-    for i in range(1, len(hist)):
+    for i in range(1, 25):
+        if abs(hist[i] - hist[i - 1]) > threshold and hist[i] > 3000:
+            significant_spikes.append((i, hist[i]))
+    for i in range(len(hist) - 25, len(hist)):
         if abs(hist[i] - hist[i - 1]) > threshold and hist[i] > 3000:
             significant_spikes.append((i, hist[i]))
 
