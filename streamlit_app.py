@@ -18,7 +18,7 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
     for i, col in enumerate(color):
         hist = cv2.calcHist([image], [i], None, [256], [0, 256])
         hist = hist.flatten()
-        ax[i].plot(hist, color=col)
+        ax[i].bar(range(256), hist, color=col)
         ax[i].set_xlim([0, 255])
         ax[i].set_ylim([0, np.max(hist)])  # Set y-axis to the max of the histogram
 
