@@ -129,7 +129,7 @@ def main():
     st.progress(progress)
 
     # Step 1: Upload an image
-    if current_step == "Upload Image":
+    if current_step == "1. Upload Image":
         uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
         if uploaded_file is not None:
@@ -140,12 +140,12 @@ def main():
         image = st.session_state.image
 
         # Step 2: Analysis
-        if current_step == "Analysis":
+        if current_step == "2. Analysis":
             st.header("RGB Histograms and Analysis")
             st.session_state.results = analyze_and_plot_histograms(image)
 
         # Step 3: Adjust Significant Values
-        if current_step == "Adjust Significant Values":
+        if current_step == "3. Adjust Significant Values":
             st.header("Adjust RGB Curves")
             sliders = []
             for i, col in enumerate(('R', 'G', 'B')):
@@ -159,22 +159,18 @@ def main():
                 st.session_state.results = analyze_and_plot_histograms(st.session_state.adjusted_image, corrected=True, sliders=sliders)
 
         # Step 4: Auto-Adjust Brightness
-        if current_step == "Auto-Adjust Brightness":
+        if current_step == "4. Auto-Adjust Brightness":
             if "adjusted_image" in st.session_state:
                 if st.button('Auto-Adjust Brightness'):
                     st.session_state.brightness_corrected_image = auto_adjust_brightness(st.session_state.adjusted_image, st.session_state.results)
                     st.image(st.session_state.brightness_corrected_image, caption='Brightness Corrected Image', use_column_width=True)
-                    st.header("Brightness Corrected RGB Histograms and Analysis")
-                    st.session_state.results = analyze_and_plot_histograms(st.session_state.brightness_corrected_image, corrected=True)
 
         # Step 5: Apply Extra Enhancements
-        if current_step == "Apply Extra Enhancements":
+        if current_step == "5. Apply Extra Enhancements":
             if "brightness_corrected_image" in st.session_state:
                 if st.button('Apply Extra Enhancements'):
                     enhanced_image = apply_extra_enhancements(st.session_state.brightness_corrected_image)
                     st.image(enhanced_image, caption='Enhanced Image', use_column_width=True)
-                    st.header("Enhanced RGB Histograms and Analysis")
-                    analyze_and_plot_histograms(enhanced_image, corrected=True)
 
 if __name__ == "__main__":
     main()
