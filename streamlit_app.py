@@ -58,25 +58,25 @@ def detect_clipping(hist):
 
 # Function to detect shifts in the histogram
 def detect_shift(hist):
-    shift_left = 0
-    shift_right = 0
+    shift_left_magnitude = 0
+    shift_right_magnitude = 0
 
     # Calculate left shift magnitude
     for i in range(len(hist)):
         if hist[i] > 0:
             break
-        shift_left += 1
+        shift_left_magnitude += 1
 
     # Calculate right shift magnitude
     for i in range(len(hist) - 1, -1, -1):
         if hist[i] > 0:
             break
-        shift_right += 1
+        shift_right_magnitude += 1
 
-    shift_left_magnitude = shift_left
-    shift_right_magnitude = shift_right
+    shift_left = shift_left_magnitude > 0
+    shift_right = shift_right_magnitude > 0
 
-    return shift_left > 0, shift_right > 0, shift_left_magnitude, shift_right_magnitude
+    return shift_left, shift_right, shift_left_magnitude, shift_right_magnitude
 
 # Function to detect spectrum issues in the histogram
 def detect_spectrum_issue(hist):
