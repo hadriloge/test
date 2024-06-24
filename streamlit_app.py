@@ -3,12 +3,11 @@ import numpy as np
 import cv2
 from matplotlib import pyplot as plt
 from PIL import Image, ImageEnhance
-import os
 
 # Function to load an image from a file
 def load_image(image_file):
     img = Image.open(image_file)
-    return np.array(img), img.size
+    return np.array(img)
 
 # Function to plot RGB histograms and analyze issues
 def analyze_and_plot_histograms(image, corrected=False, sliders=None):
@@ -50,37 +49,6 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
             st.write("")
 
     return results
-
-# Function to plot a combined 3D histogram for RGB channels
-def plot_3d_histogram(image, results):
-    color = ('b', 'g', 'r')
-    fig = plt.figure(figsize=(10, 8))
-    ax = fig.add_subplot(111, projection='3d')
-    max_z = 0
-
-    for i, col in enumerate(color):
-        hist = cv2.calcHist([image], [i], None, [256], [0, 256])
-        hist = hist.flatten()
-        x = np.arange(256)
-        y = hist
-        z = np.zeros_like(x) + i * 10  # Separate each color channel on the Z-axis
-
-        max_z = max(max_z, np.max(y))
-        ax.bar3d(x, z, np.zeros_like(x), 1, 10, y, color=col, alpha=0.6)
-
-        # Highlight first significant values
-        shift_left_value, shift_right_value = results[i]['shift_left_value'], results[i]['shift_right_value']
-        ax.bar3d([shift_left_value], [z[0]], [0], 1, 10, [y[shift_left_value]], color='black')
-        ax.bar3d([shift_right_value], [z[0]], [0], 1, 10, [y[shift_right_value]], color='black')
-
-    ax.set_xlabel('Intensity')
-    ax.set_ylabel('Color Channel')
-    ax.set_zlabel('Count')
-    ax.set_xlim([0, 255])
-    ax.set_ylim([0, 30])
-    ax.set_zlim([0, max_z])
-
-    st.pyplot(fig)
 
 # Function to detect shifts in the histogram
 def detect_shift(hist):
@@ -151,93 +119,45 @@ def apply_extra_enhancements(image):
     return np.array(contrasted_image)
 
 def main():
-    st.set_page_config(layout="centered")
     st.title("Image Histogram Adjustment App")
 
-    steps = ["Upload Image", "Analysis", "Adjust Significant Values", "Auto-Adjust Brightness", "Apply Extra Enhancements", "Download Processed Image"]
-    
-    if "step" not in st.session_state:
-        st.session_state.step = 0
-    
-    def next_step():
-        if st.session_state.step < len(steps) - 1:
-            st.session_state.step += 1
-
-    def prev_step():
-        if st.session_state.step > 0:
-            st.session_state.step -= 1
-
-    st.sidebar.title("Navigation")
-    if st.sidebar.button("Previous Step"):
-        prev_step()
-    if st.sidebar.button("Next Step"):
-        next_step()
-
-    progress = st.sidebar.progress(st.session_state.step / (len(steps) - 1))
-
     # Step 1: Upload an image
-    if st.session_state.step == 0:
-        st.header("1. Choose an image")
-        uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
-        if uploaded_file is not None:
-            st.session_state.image, st.session_state.image_size = load_image(uploaded_file)
-            st.image(st.session_state.image, caption='Uploaded Image', use_column_width=True)
-
-    if "image" in st.session_state:
-        image = st.session_state.image
+    if uploaded_file is not None:
+        image = load_image(uploaded_file)
+        st.image(image, caption='Uploaded Image', use_column_width=True)
 
         # Step 2: Analysis
-        if st.session_state.step == 1:
-            st.header("2. RGB Histograms and Analysis")
-            st.session_state.results = analyze_and_plot_histograms(image)
-            st.header("2.1 Combined 3D RGB Histogram")
-            plot_3d_histogram(image, st.session_state.results)
+        st.header("RGB Histograms and Analysis")
+        results = analyze_and_plot_histograms(image)
 
-        # Step 3: Adjust Significant Values
-        if st.session_state.step == 2:
-            st.header("3. Adjust RGB Curves")
-            sliders = []
-            for i, col in enumerate(('R', 'G', 'B')):
-                left_val, right_val = st.slider(f'{col} Channel', 0, 255, (st.session_state.results[i]['shift_left_value'] or 0, st.session_state.results[i]['shift_right_value'] or 255))
-                sliders.append((left_val, right_val))
+        # Step 3: Significant value sliders
+        st.header("Adjust RGB Curves")
+        sliders = []
+        for i, col in enumerate(('R', 'G', 'B')):
+            left_val, right_val = st.slider(f'{col} Channel', 0, 255, (results[i]['shift_left_value'] or 0, results[i]['shift_right_value'] or 255))
+            sliders.append((left_val, right_val))
 
-            if st.button('Apply Adjustments'):
-                st.session_state.adjusted_image = apply_curve_adjustments(image, sliders)
-                st.image(st.session_state.adjusted_image, caption='Adjusted Image', use_column_width=True)
-                st.header("3.1 Adjusted RGB Histograms and Analysis")
-                st.session_state.results = analyze_and_plot_histograms(st.session_state.adjusted_image, corrected=True, sliders=sliders)
+        if st.button('Apply Adjustments'):
+            adjusted_image = apply_curve_adjustments(image, sliders)
+            st.image(adjusted_image, caption='Adjusted Image', use_column_width=True)
+            st.header("Adjusted RGB Histograms and Analysis")
+            results = analyze_and_plot_histograms(adjusted_image, corrected=True, sliders=sliders)
 
-        # Step 4: Auto-Adjust Brightness
-        if st.session_state.step == 3:
-            if "adjusted_image" in st.session_state:
-                st.header("4. Auto-Adjust Brightness")
-                if st.button('Auto-Adjust Brightness'):
-                    st.session_state.brightness_corrected_image = auto_adjust_brightness(st.session_state.adjusted_image, st.session_state.results)
-                    st.image(st.session_state.brightness_corrected_image, caption='Brightness Corrected Image', use_column_width=True)
+            # Step 4: Auto-adjust brightness
+            if st.button('Auto-Adjust Brightness'):
+                brightness_corrected_image = auto_adjust_brightness(adjusted_image, results)
+                st.image(brightness_corrected_image, caption='Brightness Corrected Image', use_column_width=True)
+                st.header("Brightness Corrected RGB Histograms and Analysis")
+                results = analyze_and_plot_histograms(brightness_corrected_image, corrected=True, sliders=sliders)
 
-        # Step 5: Apply Extra Enhancements
-        if st.session_state.step == 4:
-            if "brightness_corrected_image" in st.session_state:
-                st.header("5. Apply Extra Enhancements")
+                # Step 5: Apply extra enhancements
                 if st.button('Apply Extra Enhancements'):
-                    enhanced_image = apply_extra_enhancements(st.session_state.brightness_corrected_image)
+                    enhanced_image = apply_extra_enhancements(brightness_corrected_image)
                     st.image(enhanced_image, caption='Enhanced Image', use_column_width=True)
-                    st.markdown(get_image_download_link(enhanced_image), unsafe_allow_html=True)
-
-        # Step 6: Download Processed Image
-        if st.session_state.step == 5:
-            if "brightness_corrected_image" in st.session_state:
-                st.header("6. Download Processed Image")
-                if st.button('Download Processed Image'):
-                    save_path = os.path.join(os.getcwd(), "processed_image.jpg")  # Adjust the save path as needed
-                    pil_image = Image.fromarray(st.session_state.brightness_corrected_image)
-                    pil_image.save(save_path)
-                    st.success(f"Processed image saved successfully as {save_path}")
-
-def get_image_download_link(image):
-    href = f'<a href="data:image/jpeg;base64,{image}" download="processed_image.jpg"><i class="fa fa-download"></i> Download processed image</a>'
-    return href
+                    st.header("Enhanced RGB Histograms and Analysis")
+                    analyze_and_plot_histograms(enhanced_image, corrected=True, sliders=sliders)
 
 if __name__ == "__main__":
     main()
