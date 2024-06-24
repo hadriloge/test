@@ -23,14 +23,12 @@ def analyze_and_plot_histograms(image):
         ax[i].set_xlim([0, 255])
         ax[i].set_ylim([0, np.max(hist)])  # Set y-axis to the max of the histogram
 
-        shift_left, shift_right, shift_left_magnitude, shift_right_magnitude = detect_shift(hist)
+        shift_left_value, shift_right_value = detect_shift(hist)
         spectrum_issue = detect_spectrum_issue(hist)
 
         results.append({
-            'shift_left': shift_left,
-            'shift_right': shift_right,
-            'shift_left_magnitude': shift_left_magnitude,
-            'shift_right_magnitude': shift_right_magnitude,
+            'shift_left_value': shift_left_value,
+            'shift_right_value': shift_right_value,
             'spectrum_issue': spectrum_issue
         })
 
@@ -42,8 +40,8 @@ def analyze_and_plot_histograms(image):
         result = results[i]
         with cols[i]:
             st.write(f"{col.upper()} Channel Analysis")
-            st.write(f"Shift Left: {result['shift_left']} (Magnitude: {result['shift_left_magnitude']})")
-            st.write(f"Shift Right: {result['shift_right']} (Magnitude: {result['shift_right_magnitude']})")
+            st.write(f"First Significant Left Value: {result['shift_left_value']}")
+            st.write(f"First Significant Right Value: {result['shift_right_value']}")
             st.write(f"Spectrum Issue: {result['spectrum_issue']}")
             st.write("")
 
@@ -51,25 +49,22 @@ def analyze_and_plot_histograms(image):
 
 # Function to detect shifts in the histogram
 def detect_shift(hist):
-    shift_left_magnitude = 0
-    shift_right_magnitude = 0
+    shift_left_value = None
+    shift_right_value = None
 
-    # Calculate left shift magnitude
+    # Find the first significant left value
     for i in range(len(hist)):
-        if hist[i] > 3:
+        if hist[i] > 3000:
+            shift_left_value = i
             break
-        shift_left_magnitude += 1
 
-    # Calculate right shift magnitude
+    # Find the first significant right value
     for i in range(len(hist) - 1, -1, -1):
-        if hist[i] > 3:
+        if hist[i] > 3000:
+            shift_right_value = i
             break
-        shift_right_magnitude += 1
 
-    shift_left = shift_left_magnitude > 0
-    shift_right = shift_right_magnitude > 0
-
-    return shift_left, shift_right, shift_left_magnitude, shift_right_magnitude
+    return shift_left_value, shift_right_value
 
 # Function to detect spectrum issues in the histogram
 def detect_spectrum_issue(hist):
