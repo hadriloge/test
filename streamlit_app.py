@@ -22,7 +22,7 @@ def analyze_and_plot_histograms(image):
         ax[i].set_xlim([0, 255])
 
         clipping_left, clipping_right = detect_clipping(hist)
-        shift_left, shift_right = detect_shift(hist)
+        shift_left, shift_right, shift_left_magnitude, shift_right_magnitude = detect_shift(hist)
         spectrum_issue = detect_spectrum_issue(hist)
 
         results.append({
@@ -30,21 +30,25 @@ def analyze_and_plot_histograms(image):
             'clipping_right': clipping_right,
             'shift_left': shift_left,
             'shift_right': shift_right,
+            'shift_left_magnitude': shift_left_magnitude,
+            'shift_right_magnitude': shift_right_magnitude,
             'spectrum_issue': spectrum_issue
         })
 
     st.pyplot(fig)
     
-    # Display the analysis in a structured manner
+    # Use columns to display the analysis under each histogram
+    cols = st.columns(3)
     for i, col in enumerate(color):
         result = results[i]
-        st.write(f"{col.upper()} Channel Analysis")
-        st.write(f"Clipping Left: {result['clipping_left']}")
-        st.write(f"Clipping Right: {result['clipping_right']}")
-        st.write(f"Shift Left: {result['shift_left']}")
-        st.write(f"Shift Right: {result['shift_right']}")
-        st.write(f"Spectrum Issue: {result['spectrum_issue']}")
-        st.write("")
+        with cols[i]:
+            st.write(f"{col.upper()} Channel Analysis")
+            st.write(f"Clipping Left: {result['clipping_left']}")
+            st.write(f"Clipping Right: {result['clipping_right']}")
+            st.write(f"Shift Left: {result['shift_left']} (Magnitude: {result['shift_left_magnitude']})")
+            st.write(f"Shift Right: {result['shift_right']} (Magnitude: {result['shift_right_magnitude']})")
+            st.write(f"Spectrum Issue: {result['spectrum_issue']}")
+            st.write("")
 
 # Function to detect clipping in the histogram
 def detect_clipping(hist):
@@ -54,13 +58,25 @@ def detect_clipping(hist):
 
 # Function to detect shifts in the histogram
 def detect_shift(hist):
-    total_pixels = np.sum(hist)
-    left_threshold = 0.05 * np.max(hist)
-    right_threshold = 0.05 * np.max(hist)
-    left_shift = np.sum(hist[:128] < left_threshold) > 0.5 * 128
-    right_shift = np.sum(hist[128:] < right_threshold) > 0.5 * 128
+    shift_left = 0
+    shift_right = 0
 
-    return left_shift, right_shift
+    # Calculate left shift magnitude
+    for i in range(len(hist)):
+        if hist[i] > 0:
+            break
+        shift_left += 1
+
+    # Calculate right shift magnitude
+    for i in range(len(hist) - 1, -1, -1):
+        if hist[i] > 0:
+            break
+        shift_right += 1
+
+    shift_left_magnitude = shift_left
+    shift_right_magnitude = shift_right
+
+    return shift_left > 0, shift_right > 0, shift_left_magnitude, shift_right_magnitude
 
 # Function to detect spectrum issues in the histogram
 def detect_spectrum_issue(hist):
