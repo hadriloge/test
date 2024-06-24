@@ -152,9 +152,9 @@ def main():
             st.session_state.step -= 1
 
     st.sidebar.title("Navigation")
-    if st.sidebar.button("<i class='fas fa-arrow-left'></i> Previous Step", unsafe_allow_html=True):
+    if st.sidebar.button("Previous Step"):
         prev_step()
-    if st.sidebar.button("Next Step <i class='fas fa-arrow-right'></i>", unsafe_allow_html=True):
+    if st.sidebar.button("Next Step"):
         next_step()
 
     progress = st.sidebar.progress(st.session_state.step / (len(steps) - 1))
