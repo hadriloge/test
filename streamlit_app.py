@@ -3,8 +3,9 @@ import numpy as np
 import cv2
 from matplotlib import pyplot as plt
 from PIL import Image
-import tempfile
+from io import BytesIO
 
+# Function to plot RGB histograms
 def plot_rgb_histograms(image):
     color = ('b', 'g', 'r')
     fig, ax = plt.subplots(1, 3, figsize=(15, 5))
@@ -14,44 +15,40 @@ def plot_rgb_histograms(image):
         ax[i].set_xlim([0, 256])
     st.pyplot(fig)
 
-def correct_image(image):
+# Function to adjust the image based on histograms
+def adjust_image(image):
     image = image.astype(np.float32) / 255.0
     for i in range(3):
         hist = cv2.calcHist([image], [i], None, [256], [0, 256]).flatten()
         if hist[0] > 0.05 * sum(hist) or hist[-1] > 0.05 * sum(hist):
             image[..., i] = np.clip(image[..., i], 0.05, 0.95)
         image[..., i] = (image[..., i] - np.min(image[..., i])) / (np.max(image[..., i]) - np.min(image[..., i]))
-    corrected_image = (image * 255).astype(np.uint8)
-    return corrected_image
+    adjusted_image = (image * 255).astype(np.uint8)
+    return adjusted_image
+
+# Function to load an image from a file
+def load_image(image_file):
+    img = Image.open(image_file)
+    return np.array(img)
 
 def main():
-    st.title("Image Color Correction App")
+    st.title("Image Editing App")
+
     uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
     if uploaded_file is not None:
-        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-            temp_file.write(uploaded_file.getbuffer())
-            temp_file_path = temp_file.name
+        image = load_image(uploaded_file)
+        st.image(image, caption='Uploaded Image', use_column_width=True)
 
-        image = Image.open(temp_file_path)
-        image = np.array(image)
-
-        st.subheader("Original Image")
-        st.image(image, use_column_width=True)
-
-        st.subheader("Original RGB Histograms")
+        st.header("Original RGB Histograms")
         plot_rgb_histograms(image)
 
-        corrected_image = correct_image(image)
-
-        st.subheader("Corrected Image")
-        st.image(corrected_image, use_column_width=True)
-
-        st.subheader("Corrected RGB Histograms")
-        plot_rgb_histograms(corrected_image)
-
-        # Clean up the temporary file
-        os.remove(temp_file_path)
+        if st.button("Apply Correction"):
+            corrected_image = adjust_image(image)
+            st.image(corrected_image, caption='Corrected Image', use_column_width=True)
+            
+            st.header("Corrected RGB Histograms")
+            plot_rgb_histograms(corrected_image)
 
 if __name__ == "__main__":
     main()
