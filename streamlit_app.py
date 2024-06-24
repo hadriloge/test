@@ -55,14 +55,10 @@ def detect_clipping(hist):
 # Function to detect shifts in the histogram
 def detect_shift(hist):
     total_pixels = np.sum(hist)
-    midpoint = len(hist) // 2
-    left_ratio = np.sum(hist[:midpoint]) / total_pixels
-    right_ratio = np.sum(hist[midpoint:]) / total_pixels
-
-    shift_threshold = 0.6  # Example threshold value, can be adjusted
-
-    left_shift = left_ratio > shift_threshold
-    right_shift = right_ratio > shift_threshold
+    left_threshold = 0.05 * np.max(hist)
+    right_threshold = 0.05 * np.max(hist)
+    left_shift = np.sum(hist[:128] < left_threshold) > 0.5 * 128
+    right_shift = np.sum(hist[128:] < right_threshold) > 0.5 * 128
 
     if left_shift and right_shift:
         return "Both"
