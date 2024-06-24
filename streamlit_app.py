@@ -123,23 +123,29 @@ def main():
     st.title("Image Histogram Adjustment App")
 
     steps = ["Upload Image", "Analysis", "Adjust Significant Values", "Auto-Adjust Brightness", "Apply Extra Enhancements"]
-    step_index = steps.index(st.selectbox("Steps", steps))
-
+    
+    if "step" not in st.session_state:
+        st.session_state.step = 0
+    
     def next_step():
-        if step_index < len(steps) - 1:
-            st.session_state.step_index = step_index + 1
+        if st.session_state.step < len(steps) - 1:
+            st.session_state.step += 1
 
     def prev_step():
-        if step_index > 0:
-            st.session_state.step_index = step_index - 1
+        if st.session_state.step > 0:
+            st.session_state.step -= 1
 
-    if "step_index" not in st.session_state:
-        st.session_state.step_index = 0
+    st.sidebar.title("Navigation")
+    if st.sidebar.button("Previous Step"):
+        prev_step()
+    if st.sidebar.button("Next Step"):
+        next_step()
 
-    progress = st.progress(st.session_state.step_index / (len(steps) - 1))
+    progress = st.sidebar.progress(st.session_state.step / (len(steps) - 1))
 
     # Step 1: Upload an image
-    if steps[st.session_state.step_index] == "Upload Image":
+    if st.session_state.step == 0:
+        st.header("1. Choose an image")
         uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
         if uploaded_file is not None:
@@ -150,13 +156,13 @@ def main():
         image = st.session_state.image
 
         # Step 2: Analysis
-        if steps[st.session_state.step_index] == "Analysis":
-            st.header("RGB Histograms and Analysis")
+        if st.session_state.step == 1:
+            st.header("2. RGB Histograms and Analysis")
             st.session_state.results = analyze_and_plot_histograms(image)
 
         # Step 3: Adjust Significant Values
-        if steps[st.session_state.step_index] == "Adjust Significant Values":
-            st.header("Adjust RGB Curves")
+        if st.session_state.step == 2:
+            st.header("3. Adjust RGB Curves")
             sliders = []
             for i, col in enumerate(('R', 'G', 'B')):
                 left_val, right_val = st.slider(f'{col} Channel', 0, 255, (st.session_state.results[i]['shift_left_value'] or 0, st.session_state.results[i]['shift_right_value'] or 255))
@@ -165,22 +171,24 @@ def main():
             if st.button('Apply Adjustments'):
                 st.session_state.adjusted_image = apply_curve_adjustments(image, sliders)
                 st.image(st.session_state.adjusted_image, caption='Adjusted Image', use_column_width=True)
-                st.header("Adjusted RGB Histograms and Analysis")
+                st.header("3.1 Adjusted RGB Histograms and Analysis")
                 st.session_state.results = analyze_and_plot_histograms(st.session_state.adjusted_image, corrected=True, sliders=sliders)
 
         # Step 4: Auto-Adjust Brightness
-        if steps[st.session_state.step_index] == "Auto-Adjust Brightness":
+        if st.session_state.step == 3:
             if "adjusted_image" in st.session_state:
+                st.header("4. Auto-Adjust Brightness")
                 if st.button('Auto-Adjust Brightness'):
                     st.session_state.brightness_corrected_image = auto_adjust_brightness(st.session_state.adjusted_image, st.session_state.results)
                     st.image(st.session_state.brightness_corrected_image, caption='Brightness Corrected Image', use_column_width=True)
-                    st.header("Brightness Corrected RGB Histograms and Analysis")
-                    st.session_state.results = analyze_and_plot_histograms(st.session_state.brightness_corrected_image, corrected=True)
 
         # Step 5: Apply Extra Enhancements
-        if steps[st.session_state.step_index] == "Apply Extra Enhancements":
+        if st.session_state.step == 4:
             if "brightness_corrected_image" in st.session_state:
+                st.header("5. Apply Extra Enhancements")
                 if st.button('Apply Extra Enhancements'):
                     enhanced_image = apply_extra_enhancements(st.session_state.brightness_corrected_image)
                     st.image(enhanced_image, caption='Enhanced Image', use_column_width=True)
-                    st
+
+if __name__ == "__main__":
+    main()
