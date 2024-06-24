@@ -1,6 +1,6 @@
 streamlit
 numpy 
-cv2
+opencv-python-headless
 matplotlib 
 PIL 
 tempfile
