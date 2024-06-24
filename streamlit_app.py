@@ -11,7 +11,7 @@ def plot_rgb_histograms(image):
     for i, col in enumerate(color):
         hist = cv2.calcHist([image], [i], None, [256], [0, 256])
         ax[i].plot(hist, color=col)
-        ax[i].set_xlim([0, 256])
+        ax[i].set_xlim([0, 255])
     st.pyplot(fig)
 
 # Function to adjust the image based on histograms
