@@ -16,7 +16,7 @@ def analyze_and_plot_histograms(image):
     results = []
 
     for i, col in enumerate(color):
-        hist = cv2.calcHist([image], [i], None, [256], [0, 255])
+        hist = cv2.calcHist([image], [i], None, [256], [0, 256])
         hist = hist.flatten()
         ax[i].plot(hist, color=col)
         ax[i].set_xlim([0, 255])
@@ -30,13 +30,14 @@ def analyze_and_plot_histograms(image):
 
     st.pyplot(fig)
     
+    # Use columns to display the analysis under each histogram
     for i, col in enumerate(color):
-        clipping, shift, spectrum_issue = results[i]
-        st.write(f"{col.upper()} Channel Analysis:")
-        st.write(f"  - Clipping: {clipping}")
-        st.write(f"  - Shift: {shift}")
-        st.write(f"  - Spectrum Issue: {spectrum_issue}")
-        st.write("")
+        with st.container():
+            clipping, shift, spectrum_issue = results[i]
+            st.subheader(f"{col.upper()} Channel Analysis:")
+            st.write(f"  - Clipping: {clipping}")
+            st.write(f"  - Shift: {shift}")
+            st.write(f"  - Spectrum Issue: {spectrum_issue}")
 
 # Function to detect clipping in the histogram
 def detect_clipping(hist):
