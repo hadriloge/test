@@ -19,15 +19,15 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
         hist = cv2.calcHist([image], [i], None, [256], [0, 256])
         hist = hist.flatten()
 
-        # Smoothing histogram using a median filter
-        smoothed_hist = cv2.medianBlur(hist, 5)
+        # Detect and handle spikes (clipping)
+        hist_without_spikes = detect_and_handle_spikes(hist)
 
-        ax[i].plot(smoothed_hist, color=col)
+        ax[i].plot(hist_without_spikes, color=col)
         ax[i].set_xlim([0, 255])
-        ax[i].set_ylim([0, np.max(smoothed_hist)])  # Set y-axis to the max of the histogram
+        ax[i].set_ylim([0, np.max(hist_without_spikes)])  # Set y-axis to the max of the histogram
 
-        shift_left_value, shift_right_value = detect_shift(smoothed_hist)
-        spectrum_issue = detect_spectrum_issue(smoothed_hist)
+        shift_left_value, shift_right_value = detect_shift(hist_without_spikes)
+        spectrum_issue = detect_spectrum_issue(hist_without_spikes)
 
         results.append({
             'shift_left_value': shift_left_value,
@@ -53,6 +53,18 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
             st.write("")
 
     return results
+
+# Function to detect spikes (clipping) in the histogram and handle them
+def detect_and_handle_spikes(hist):
+    smoothed_hist = cv2.medianBlur(hist, 5)  # Smooth the histogram first
+    max_value = np.max(smoothed_hist)
+    mean_value = np.mean(smoothed_hist)
+    threshold = mean_value + 2 * np.sqrt(mean_value)  # Adjust this threshold based on your needs
+
+    # Detect spikes (values above threshold) and clip them
+    hist_without_spikes = np.where(smoothed_hist > threshold, threshold, smoothed_hist)
+
+    return hist_without_spikes
 
 # Function to detect shifts in the histogram
 def detect_shift(hist):
@@ -140,9 +152,9 @@ def main():
             st.session_state.step -= 1
 
     st.sidebar.title("Navigation")
-    if st.sidebar.button("Previous Step"):
+    if st.sidebar.button("<i class='fas fa-arrow-left'></i> Previous Step", unsafe_allow_html=True):
         prev_step()
-    if st.sidebar.button("Next Step"):
+    if st.sidebar.button("Next Step <i class='fas fa-arrow-right'></i>", unsafe_allow_html=True):
         next_step()
 
     progress = st.sidebar.progress(st.session_state.step / (len(steps) - 1))
