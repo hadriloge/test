@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import cv2
 from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image, ImageEnhance
 
 # Function to load an image from a file
@@ -49,6 +50,34 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
             st.write("")
 
     return results
+
+# Function to plot a 3D histogram
+def plot_3d_histogram(image, results):
+    color = ('b', 'g', 'r')
+    fig = plt.figure(figsize=(15, 5))
+
+    for i, col in enumerate(color):
+        ax = fig.add_subplot(1, 3, i+1, projection='3d')
+        hist = cv2.calcHist([image], [i], None, [256], [0, 256])
+        hist = hist.flatten()
+        x = np.arange(256)
+        y = hist
+        z = np.zeros_like(x)
+
+        ax.bar3d(x, z, z, 1, 1, y, color=col, alpha=0.6)
+
+        ax.set_xlabel('Intensity')
+        ax.set_ylabel('Frequency')
+        ax.set_zlabel('Count')
+        ax.set_xlim([0, 255])
+        ax.set_ylim([0, np.max(hist)])  # Set y-axis to the max of the histogram
+
+        # Highlight first significant values
+        shift_left_value, shift_right_value = results[i]['shift_left_value'], results[i]['shift_right_value']
+        ax.bar3d(shift_left_value, 0, 0, 1, 1, hist[shift_left_value], color='black')
+        ax.bar3d(shift_right_value, 0, 0, 1, 1, hist[shift_right_value], color='black')
+
+    st.pyplot(fig)
 
 # Function to detect shifts in the histogram
 def detect_shift(hist):
@@ -159,6 +188,8 @@ def main():
         if st.session_state.step == 1:
             st.header("2. RGB Histograms and Analysis")
             st.session_state.results = analyze_and_plot_histograms(image)
+            st.header("2.1 3D RGB Histogram")
+            plot_3d_histogram(image, st.session_state.results)
 
         # Step 3: Adjust Significant Values
         if st.session_state.step == 2:
