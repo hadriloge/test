@@ -51,31 +51,34 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
 
     return results
 
-# Function to plot a 3D histogram
+# Function to plot a combined 3D histogram for RGB channels
 def plot_3d_histogram(image, results):
     color = ('b', 'g', 'r')
-    fig = plt.figure(figsize=(15, 5))
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    max_z = 0
 
     for i, col in enumerate(color):
-        ax = fig.add_subplot(1, 3, i+1, projection='3d')
         hist = cv2.calcHist([image], [i], None, [256], [0, 256])
         hist = hist.flatten()
         x = np.arange(256)
         y = hist
-        z = np.zeros_like(x)
+        z = np.zeros_like(x) + i * 10  # Separate each color channel on the Z-axis
 
-        ax.bar3d(x, z, z, 1, 1, y, color=col, alpha=0.6)
-
-        ax.set_xlabel('Intensity')
-        ax.set_ylabel('Frequency')
-        ax.set_zlabel('Count')
-        ax.set_xlim([0, 255])
-        ax.set_ylim([0, np.max(hist)])  # Set y-axis to the max of the histogram
+        max_z = max(max_z, np.max(y))
+        ax.bar3d(x, z, np.zeros_like(x), 1, 10, y, color=col, alpha=0.6)
 
         # Highlight first significant values
         shift_left_value, shift_right_value = results[i]['shift_left_value'], results[i]['shift_right_value']
-        ax.bar3d(shift_left_value, 0, 0, 1, 1, hist[shift_left_value], color='black')
-        ax.bar3d(shift_right_value, 0, 0, 1, 1, hist[shift_right_value], color='black')
+        ax.bar3d([shift_left_value], [z[0]], [0], 1, 10, [y[shift_left_value]], color='black')
+        ax.bar3d([shift_right_value], [z[0]], [0], 1, 10, [y[shift_right_value]], color='black')
+
+    ax.set_xlabel('Intensity')
+    ax.set_ylabel('Color Channel')
+    ax.set_zlabel('Count')
+    ax.set_xlim([0, 255])
+    ax.set_ylim([0, 30])
+    ax.set_zlim([0, max_z])
 
     st.pyplot(fig)
 
@@ -188,7 +191,7 @@ def main():
         if st.session_state.step == 1:
             st.header("2. RGB Histograms and Analysis")
             st.session_state.results = analyze_and_plot_histograms(image)
-            st.header("2.1 3D RGB Histogram")
+            st.header("2.1 Combined 3D RGB Histogram")
             plot_3d_histogram(image, st.session_state.results)
 
         # Step 3: Adjust Significant Values
