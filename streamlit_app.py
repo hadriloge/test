@@ -2,14 +2,13 @@ import streamlit as st
 import numpy as np
 import cv2
 from matplotlib import pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image, ImageEnhance
-import plotly.graph_objs as go
+import os
 
 # Function to load an image from a file
 def load_image(image_file):
     img = Image.open(image_file)
-    return np.array(img)
+    return np.array(img), img.size
 
 # Function to plot RGB histograms and analyze issues
 def analyze_and_plot_histograms(image, corrected=False, sliders=None):
@@ -55,32 +54,33 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
 # Function to plot a combined 3D histogram for RGB channels
 def plot_3d_histogram(image, results):
     color = ('b', 'g', 'r')
-    hist_data = []
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
     max_z = 0
 
     for i, col in enumerate(color):
         hist = cv2.calcHist([image], [i], None, [256], [0, 256])
         hist = hist.flatten()
-        hist_data.append(hist)
-        max_z = max(max_z, np.max(hist))
+        x = np.arange(256)
+        y = hist
+        z = np.zeros_like(x) + i * 10  # Separate each color channel on the Z-axis
 
-    data = [
-        go.Bar3d(x=np.arange(256), y=i * np.ones(256), z=np.zeros(256), dx=1, dy=1, dz=hist_data[i], 
-                 opacity=0.6, color=color[i], name=f'{color[i].upper()} Channel')
-        for i in range(3)
-    ]
+        max_z = max(max_z, np.max(y))
+        ax.bar3d(x, z, np.zeros_like(x), 1, 10, y, color=col, alpha=0.6)
 
-    layout = go.Layout(
-        title='Combined 3D RGB Histogram',
-        scene=dict(
-            xaxis=dict(title='Intensity'),
-            yaxis=dict(title='Color Channel'),
-            zaxis=dict(title='Count', range=[0, max_z]),
-        )
-    )
+        # Highlight first significant values
+        shift_left_value, shift_right_value = results[i]['shift_left_value'], results[i]['shift_right_value']
+        ax.bar3d([shift_left_value], [z[0]], [0], 1, 10, [y[shift_left_value]], color='black')
+        ax.bar3d([shift_right_value], [z[0]], [0], 1, 10, [y[shift_right_value]], color='black')
 
-    fig = go.Figure(data=data, layout=layout)
-    st.plotly_chart(fig)
+    ax.set_xlabel('Intensity')
+    ax.set_ylabel('Color Channel')
+    ax.set_zlabel('Count')
+    ax.set_xlim([0, 255])
+    ax.set_ylim([0, 30])
+    ax.set_zlim([0, max_z])
+
+    st.pyplot(fig)
 
 # Function to detect shifts in the histogram
 def detect_shift(hist):
@@ -181,7 +181,7 @@ def main():
         uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
         if uploaded_file is not None:
-            st.session_state.image = load_image(uploaded_file)
+            st.session_state.image, st.session_state.image_size = load_image(uploaded_file)
             st.image(st.session_state.image, caption='Uploaded Image', use_column_width=True)
 
     if "image" in st.session_state:
@@ -223,16 +223,20 @@ def main():
                 if st.button('Apply Extra Enhancements'):
                     enhanced_image = apply_extra_enhancements(st.session_state.brightness_corrected_image)
                     st.image(enhanced_image, caption='Enhanced Image', use_column_width=True)
-                    
-                    # Download Button
                     st.markdown(get_image_download_link(enhanced_image), unsafe_allow_html=True)
 
+        # Step 6: Download Processed Image
+        if st.session_state.step == 5:
+            if "brightness_corrected_image" in st.session_state:
+                st.header("6. Download Processed Image")
+                if st.button('Download Processed Image'):
+                    save_path = os.path.join(os.getcwd(), "processed_image.jpg")  # Adjust the save path as needed
+                    pil_image = Image.fromarray(st.session_state.brightness_corrected_image)
+                    pil_image.save(save_path)
+                    st.success(f"Processed image saved successfully as {save_path}")
+
 def get_image_download_link(image):
-    pil_image = Image.fromarray(image)
-    buffered = BytesIO()
-    pil_image.save(buffered, format="JPEG")
-    img_str = base64.b64encode(buffered.getvalue()).decode()
-    href = f'<a href="data:file/jpg;base64,{img_str}" download="processed_image.jpg">Download processed image</a>'
+    href = f'<a href="data:image/jpeg;base64,{image}" download="processed_image.jpg"><i class="fa fa-download"></i> Download processed image</a>'
     return href
 
 if __name__ == "__main__":
