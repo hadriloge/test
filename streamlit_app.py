@@ -52,7 +52,7 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
 
     return results
 
-# Function to detect shifts in the histogram
+# Function to detect shifts and significant spikes in the histogram
 def detect_shift(hist):
     shift_left_value = None
     shift_right_value = None
@@ -70,9 +70,9 @@ def detect_shift(hist):
             shift_right_value = i
             break
 
-    # Detect significant spikes
+    # Detect significant spikes based on change from one bin to another
     for i in range(1, len(hist) - 1):
-        if hist[i] > 1.5 * hist[i-1] and hist[i] > 1.5 * hist[i+1]:
+        if abs(hist[i] - hist[i - 1]) > 0.5 * np.max(hist) and hist[i] > 3000:
             significant_spikes.append((i, hist[i]))
 
     return shift_left_value, shift_right_value, significant_spikes
