@@ -18,12 +18,16 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
     for i, col in enumerate(color):
         hist = cv2.calcHist([image], [i], None, [256], [0, 256])
         hist = hist.flatten()
-        ax[i].plot(hist, color=col)
-        ax[i].set_xlim([0, 255])
-        ax[i].set_ylim([0, np.max(hist)])  # Set y-axis to the max of the histogram
 
-        shift_left_value, shift_right_value = detect_shift(hist)
-        spectrum_issue = detect_spectrum_issue(hist)
+        # Smoothing histogram using a median filter
+        smoothed_hist = cv2.medianBlur(hist, 5)
+
+        ax[i].plot(smoothed_hist, color=col)
+        ax[i].set_xlim([0, 255])
+        ax[i].set_ylim([0, np.max(smoothed_hist)])  # Set y-axis to the max of the histogram
+
+        shift_left_value, shift_right_value = detect_shift(smoothed_hist)
+        spectrum_issue = detect_spectrum_issue(smoothed_hist)
 
         results.append({
             'shift_left_value': shift_left_value,
