@@ -119,7 +119,11 @@ def apply_extra_enhancements(image):
     return np.array(contrasted_image)
 
 def main():
+    st.set_page_config(layout="wide")
     st.title("Image Histogram Adjustment App")
+
+    progress = st.progress(0)
+    progress.text("Step 1: Upload an image")
 
     # Step 1: Upload an image
     uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
@@ -127,10 +131,14 @@ def main():
     if uploaded_file is not None:
         image = load_image(uploaded_file)
         st.image(image, caption='Uploaded Image', use_column_width=True)
+        progress.progress(20)
+        progress.text("Step 2: Analysis")
 
         # Step 2: Analysis
         st.header("RGB Histograms and Analysis")
         results = analyze_and_plot_histograms(image)
+        progress.progress(40)
+        progress.text("Step 3: Adjust Significant Values")
 
         # Step 3: Significant value sliders
         st.header("Adjust RGB Curves")
@@ -144,6 +152,8 @@ def main():
             st.image(adjusted_image, caption='Adjusted Image', use_column_width=True)
             st.header("Adjusted RGB Histograms and Analysis")
             results = analyze_and_plot_histograms(adjusted_image, corrected=True, sliders=sliders)
+            progress.progress(60)
+            progress.text("Step 4: Auto-Adjust Brightness")
 
             # Step 4: Auto-adjust brightness
             if st.button('Auto-Adjust Brightness'):
@@ -151,6 +161,8 @@ def main():
                 st.image(brightness_corrected_image, caption='Brightness Corrected Image', use_column_width=True)
                 st.header("Brightness Corrected RGB Histograms and Analysis")
                 results = analyze_and_plot_histograms(brightness_corrected_image, corrected=True, sliders=sliders)
+                progress.progress(80)
+                progress.text("Step 5: Apply Extra Enhancements")
 
                 # Step 5: Apply extra enhancements
                 if st.button('Apply Extra Enhancements'):
@@ -158,6 +170,8 @@ def main():
                     st.image(enhanced_image, caption='Enhanced Image', use_column_width=True)
                     st.header("Enhanced RGB Histograms and Analysis")
                     analyze_and_plot_histograms(enhanced_image, corrected=True, sliders=sliders)
+                    progress.progress(100)
+                    progress.text("Completed")
 
 if __name__ == "__main__":
     main()
