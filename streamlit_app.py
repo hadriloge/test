@@ -31,13 +31,14 @@ def analyze_and_plot_histograms(image):
     st.pyplot(fig)
     
     # Use columns to display the analysis under each histogram
+    cols = st.columns(3)
     for i, col in enumerate(color):
-        with st.container():
-            clipping, shift, spectrum_issue = results[i]
-            st.subheader(f"{col.upper()} Channel Analysis:")
-            st.write(f"  - Clipping: {clipping}")
-            st.write(f"  - Shift: {shift}")
-            st.write(f"  - Spectrum Issue: {spectrum_issue}")
+        clipping, shift, spectrum_issue = results[i]
+        with cols[i]:
+            st.subheader(f"{col.upper()} Channel Analysis")
+            st.write(f"Clipping: {clipping}")
+            st.write(f"Shift: {shift}")
+            st.write(f"Spectrum Issue: {spectrum_issue}")
 
 # Function to detect clipping in the histogram
 def detect_clipping(hist):
