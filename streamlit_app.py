@@ -71,8 +71,9 @@ def detect_shift(hist):
             break
 
     # Detect significant spikes based on change from one bin to another
+    threshold = 0.2 * np.max(hist)  # Lowering the threshold for spike detection
     for i in range(1, len(hist) - 1):
-        if abs(hist[i] - hist[i - 1]) > 0.5 * np.max(hist) and hist[i] > 3000:
+        if abs(hist[i] - hist[i - 1]) > threshold and hist[i] > 3000:
             significant_spikes.append((i, hist[i]))
 
     return shift_left_value, shift_right_value, significant_spikes
