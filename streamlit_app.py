@@ -50,6 +50,19 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
             st.write(f"Significant Spikes: {result['significant_spikes']}")
             st.write("")
 
+    # Add an "About this App" section
+    with st.expander("ℹ️ About this App"):
+        st.write("""
+            This app allows you to analyze and adjust the histograms of an uploaded image. 
+            It includes the following steps:
+            - **Upload Image**: Choose an image file to upload.
+            - **Analysis**: View the RGB histograms and analyze for significant shifts and spikes.
+            - **Remove Spikes**: Automatically detect and remove significant spikes in the histogram.
+            - **Adjust Significant Values**: Manually adjust the RGB curves using sliders.
+            - **Auto-Adjust Brightness**: Automatically adjust the brightness based on the analysis.
+            - **Apply Extra Enhancements**: Apply additional enhancements like sharpening and contrast adjustment.
+        """)
+    
     return results
 
 # Function to detect shifts and significant spikes in the histogram
@@ -143,7 +156,7 @@ def main():
     st.set_page_config(layout="centered")
     st.title("Image Histogram Adjustment App")
 
-    steps = ["Upload Image", "Analysis", "Adjust Significant Values", "Auto-Adjust Brightness", "Apply Extra Enhancements"]
+    steps = ["Upload Image", "Analysis", "Remove Spikes", "Adjust Significant Values", "Auto-Adjust Brightness", "Apply Extra Enhancements"]
     
     if "step" not in st.session_state:
         st.session_state.step = 0
@@ -181,41 +194,40 @@ def main():
             st.header("2. RGB Histograms and Analysis")
             st.session_state.results = analyze_and_plot_histograms(image)
 
-        # Step 3: Adjust Significant Values
+        # Step 3: Remove Spikes
         if st.session_state.step == 2:
-            st.header("3. Adjust RGB Curves")
+            st.header("3. Remove Spikes")
+            if st.button('Remove Spikes'):
+                st.session_state.spike_removed_image = remove_spikes(image, st.session_state.results)
+                st.image(st.session_state.spike_removed_image, caption='Spikes Removed Image', use_column_width=True)
+
+        # Step 4: Adjust Significant Values
+        if st.session_state.step == 3:
+            st.header("4. Adjust RGB Curves")
             sliders = []
             for i, col in enumerate(('R', 'G', 'B')):
                 left_val, right_val = st.slider(f'{col} Channel', 0, 255, (st.session_state.results[i]['shift_left_value'] or 0, st.session_state.results[i]['shift_right_value'] or 255))
                 sliders.append((left_val, right_val))
 
             if st.button('Apply Adjustments'):
-                st.session_state.adjusted_image = apply_curve_adjustments(image, sliders)
+                st.session_state.adjusted_image = apply_curve_adjustments(st.session_state.spike_removed_image, sliders)
                 st.image(st.session_state.adjusted_image, caption='Adjusted Image', use_column_width=True)
 
-        # Step 4: Auto-Adjust Brightness
-        if st.session_state.step == 3:
+        # Step 5: Auto-Adjust Brightness
+        if st.session_state.step == 4:
             if "adjusted_image" in st.session_state:
-                st.header("4. Auto-Adjust Brightness")
+                st.header("5. Auto-Adjust Brightness")
                 if st.button('Auto-Adjust Brightness'):
                     st.session_state.brightness_corrected_image = auto_adjust_brightness(st.session_state.adjusted_image, st.session_state.results)
                     st.image(st.session_state.brightness_corrected_image, caption='Brightness Corrected Image', use_column_width=True)
 
-        # Step 5: Apply Extra Enhancements
-        if st.session_state.step == 4:
+        # Step 6: Apply Extra Enhancements
+        if st.session_state.step == 5:
             if "brightness_corrected_image" in st.session_state:
-                st.header("5. Apply Extra Enhancements")
+                st.header("6. Apply Extra Enhancements")
                 if st.button('Apply Extra Enhancements'):
                     enhanced_image = apply_extra_enhancements(st.session_state.brightness_corrected_image)
                     st.image(enhanced_image, caption='Enhanced Image', use_column_width=True)
-
-        # Step 6: Remove Spikes
-        if st.session_state.step == 5:
-            if "brightness_corrected_image" in st.session_state:
-                st.header("6. Remove Spikes")
-                if st.button('Remove Spikes'):
-                    spike_removed_image = remove_spikes(st.session_state.brightness_corrected_image, st.session_state.results)
-                    st.image(spike_removed_image, caption='Spikes Removed Image', use_column_width=True)
 
 if __name__ == "__main__":
     main()
