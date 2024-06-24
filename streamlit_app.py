@@ -4,6 +4,7 @@ import cv2
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image, ImageEnhance
+import plotly.graph_objs as go
 
 # Function to load an image from a file
 def load_image(image_file):
@@ -54,33 +55,32 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
 # Function to plot a combined 3D histogram for RGB channels
 def plot_3d_histogram(image, results):
     color = ('b', 'g', 'r')
-    fig = plt.figure(figsize=(10, 8))
-    ax = fig.add_subplot(111, projection='3d')
+    hist_data = []
     max_z = 0
 
     for i, col in enumerate(color):
         hist = cv2.calcHist([image], [i], None, [256], [0, 256])
         hist = hist.flatten()
-        x = np.arange(256)
-        y = hist
-        z = np.zeros_like(x) + i * 10  # Separate each color channel on the Z-axis
+        hist_data.append(hist)
+        max_z = max(max_z, np.max(hist))
 
-        max_z = max(max_z, np.max(y))
-        ax.bar3d(x, z, np.zeros_like(x), 1, 10, y, color=col, alpha=0.6)
+    data = [
+        go.Bar3d(x=np.arange(256), y=i * np.ones(256), z=np.zeros(256), dx=1, dy=1, dz=hist_data[i], 
+                 opacity=0.6, color=color[i], name=f'{color[i].upper()} Channel')
+        for i in range(3)
+    ]
 
-        # Highlight first significant values
-        shift_left_value, shift_right_value = results[i]['shift_left_value'], results[i]['shift_right_value']
-        ax.bar3d([shift_left_value], [z[0]], [0], 1, 10, [y[shift_left_value]], color='black')
-        ax.bar3d([shift_right_value], [z[0]], [0], 1, 10, [y[shift_right_value]], color='black')
+    layout = go.Layout(
+        title='Combined 3D RGB Histogram',
+        scene=dict(
+            xaxis=dict(title='Intensity'),
+            yaxis=dict(title='Color Channel'),
+            zaxis=dict(title='Count', range=[0, max_z]),
+        )
+    )
 
-    ax.set_xlabel('Intensity')
-    ax.set_ylabel('Color Channel')
-    ax.set_zlabel('Count')
-    ax.set_xlim([0, 255])
-    ax.set_ylim([0, 30])
-    ax.set_zlim([0, max_z])
-
-    st.pyplot(fig)
+    fig = go.Figure(data=data, layout=layout)
+    st.plotly_chart(fig)
 
 # Function to detect shifts in the histogram
 def detect_shift(hist):
@@ -154,7 +154,7 @@ def main():
     st.set_page_config(layout="centered")
     st.title("Image Histogram Adjustment App")
 
-    steps = ["Upload Image", "Analysis", "Adjust Significant Values", "Auto-Adjust Brightness", "Apply Extra Enhancements"]
+    steps = ["Upload Image", "Analysis", "Adjust Significant Values", "Auto-Adjust Brightness", "Apply Extra Enhancements", "Download Processed Image"]
     
     if "step" not in st.session_state:
         st.session_state.step = 0
@@ -205,6 +205,8 @@ def main():
             if st.button('Apply Adjustments'):
                 st.session_state.adjusted_image = apply_curve_adjustments(image, sliders)
                 st.image(st.session_state.adjusted_image, caption='Adjusted Image', use_column_width=True)
+                st.header("3.1 Adjusted RGB Histograms and Analysis")
+                st.session_state.results = analyze_and_plot_histograms(st.session_state.adjusted_image, corrected=True, sliders=sliders)
 
         # Step 4: Auto-Adjust Brightness
         if st.session_state.step == 3:
@@ -221,6 +223,17 @@ def main():
                 if st.button('Apply Extra Enhancements'):
                     enhanced_image = apply_extra_enhancements(st.session_state.brightness_corrected_image)
                     st.image(enhanced_image, caption='Enhanced Image', use_column_width=True)
+                    
+                    # Download Button
+                    st.markdown(get_image_download_link(enhanced_image), unsafe_allow_html=True)
+
+def get_image_download_link(image):
+    pil_image = Image.fromarray(image)
+    buffered = BytesIO()
+    pil_image.save(buffered, format="JPEG")
+    img_str = base64.b64encode(buffered.getvalue()).decode()
+    href = f'<a href="data:file/jpg;base64,{img_str}" download="processed_image.jpg">Download processed image</a>'
+    return href
 
 if __name__ == "__main__":
     main()
