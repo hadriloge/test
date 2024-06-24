@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from PIL import Image
+from PIL import Image, ImageEnhance
 
 # Function to load an image from a file
 def load_image(image_file):
@@ -11,7 +11,7 @@ def load_image(image_file):
     return np.array(img)
 
 # Function to plot RGB histograms and analyze issues
-def analyze_and_plot_histograms(image):
+def analyze_and_plot_histograms(image, corrected=False):
     color = ('b', 'g', 'r')
     fig, ax = plt.subplots(1, 3, figsize=(15, 5))
     results = []
@@ -32,6 +32,10 @@ def analyze_and_plot_histograms(image):
             'spectrum_issue': spectrum_issue
         })
 
+        if corrected:
+            ax[i].axvline(x=shift_left_value, color='black', linestyle='--')
+            ax[i].axvline(x=shift_right_value, color='black', linestyle='--')
+
     st.pyplot(fig)
     
     # Use columns to display the analysis under each histogram
@@ -45,7 +49,7 @@ def analyze_and_plot_histograms(image):
             st.write(f"Spectrum Issue: {result['spectrum_issue']}")
             st.write("")
 
-    plot_3d_histogram(image)
+    plot_3d_histogram(image, results)
 
 # Function to detect shifts in the histogram
 def detect_shift(hist):
@@ -79,8 +83,31 @@ def detect_spectrum_issue(hist):
     else:
         return "None"
 
+# Function to correct RGB values
+def correct_rgb(image):
+    corrected_image = image.copy()
+    color = ('b', 'g', 'r')
+
+    for i in range(3):
+        hist = cv2.calcHist([image], [i], None, [256], [0, 256]).flatten()
+        shift_left_value, shift_right_value = detect_shift(hist)
+
+        # Apply corrections based on the shift values
+        corrected_image[:, :, i] = np.clip(np.interp(image[:, :, i], (0, shift_left_value), (shift_left_value, 255)), 0, 255)
+
+    # Detect and correct over/underexposure
+    spectrum_issue = detect_spectrum_issue(cv2.calcHist([corrected_image], [0, 1, 2], None, [256], [0, 256]).flatten())
+    if spectrum_issue == "Underexposure":
+        enhancer = ImageEnhance.Brightness(Image.fromarray(corrected_image))
+        corrected_image = np.array(enhancer.enhance(1.2))
+    elif spectrum_issue == "Overexposure":
+        enhancer = ImageEnhance.Brightness(Image.fromarray(corrected_image))
+        corrected_image = np.array(enhancer.enhance(0.8))
+
+    return corrected_image
+
 # Function to plot 3D histogram
-def plot_3d_histogram(image):
+def plot_3d_histogram(image, results):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
@@ -92,6 +119,14 @@ def plot_3d_histogram(image):
         ys = hist
 
         ax.bar(xs, ys, zs=i, zdir='y', color=color, alpha=0.8, edgecolor=color)
+
+        # Plot the first significant values
+        shift_left_value = results[i]['shift_left_value']
+        shift_right_value = results[i]['shift_right_value']
+        if shift_left_value is not None:
+            ax.scatter([shift_left_value], [i], [ys[shift_left_value]], color='k', marker='o')
+        if shift_right_value is not None:
+            ax.scatter([shift_right_value], [i], [ys[shift_right_value]], color='k', marker='o')
 
     ax.set_xlabel('Pixel Intensity')
     ax.set_ylabel('Color Channel')
@@ -112,6 +147,12 @@ def main():
 
         st.header("RGB Histograms and Analysis")
         analyze_and_plot_histograms(image)
+
+        if st.button('Correct RGB'):
+            corrected_image = correct_rgb(image)
+            st.image(corrected_image, caption='Corrected Image', use_column_width=True)
+            st.header("Corrected RGB Histograms and Analysis")
+            analyze_and_plot_histograms(corrected_image, corrected=True)
 
 if __name__ == "__main__":
     main()
