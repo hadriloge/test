@@ -3,4 +3,4 @@ numpy
 opencv-python-headless
 matplotlib 
 pillow
-base64
+BytesIO
