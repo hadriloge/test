@@ -21,7 +21,7 @@ def analyze_and_plot_histograms(image):
         hist = hist.flatten()
         ax[i].plot(hist, color=col)
         ax[i].set_xlim([0, 255])
-        ax[i].set_ylim([0, 255])
+        ax[i].set_ylim([0, np.max(hist)])  # Set y-axis to the max of the histogram
 
         shift_left, shift_right, shift_left_magnitude, shift_right_magnitude = detect_shift(hist)
         spectrum_issue = detect_spectrum_issue(hist)
