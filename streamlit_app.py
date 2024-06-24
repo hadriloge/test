@@ -171,8 +171,6 @@ def main():
             if st.button('Apply Adjustments'):
                 st.session_state.adjusted_image = apply_curve_adjustments(image, sliders)
                 st.image(st.session_state.adjusted_image, caption='Adjusted Image', use_column_width=True)
-                st.header("3.1 Adjusted RGB Histograms and Analysis")
-                st.session_state.results = analyze_and_plot_histograms(st.session_state.adjusted_image, corrected=True, sliders=sliders)
 
         # Step 4: Auto-Adjust Brightness
         if st.session_state.step == 3:
