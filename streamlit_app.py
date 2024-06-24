@@ -93,6 +93,24 @@ def apply_curve_adjustments(image, sliders):
 
     return adjusted_image
 
+# Function to correct exposure using Hue and Brightness
+def correct_exposure(image, results):
+    hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+    h, s, v = cv2.split(hsv_image)
+
+    for i, result in enumerate(results):
+        if result['spectrum_issue'] == "Underexposure":
+            s = cv2.add(s, 20)
+            v = cv2.add(v, 20)
+        elif result['spectrum_issue'] == "Overexposure":
+            s = cv2.subtract(s, 20)
+            v = cv2.subtract(v, 20)
+
+    hsv_image = cv2.merge([h, s, v])
+    corrected_image = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2RGB)
+
+    return corrected_image
+
 def main():
     st.title("Image Histogram Adjustment App")
 
@@ -109,8 +127,7 @@ def main():
         st.header("Adjust RGB Curves")
         sliders = []
         for i, col in enumerate(('R', 'G', 'B')):
-            left_val = st.slider(f'{col} Channel Left Value', 0, 255, results[i]['shift_left_value'] or 0)
-            right_val = st.slider(f'{col} Channel Right Value', 0, 255, results[i]['shift_right_value'] or 255)
+            left_val, right_val = st.slider(f'{col} Channel', 0, 255, (results[i]['shift_left_value'] or 0, results[i]['shift_right_value'] or 255))
             sliders.append((left_val, right_val))
 
         if st.button('Apply Adjustments'):
@@ -118,6 +135,10 @@ def main():
             st.image(adjusted_image, caption='Adjusted Image', use_column_width=True)
             st.header("Adjusted RGB Histograms and Analysis")
             analyze_and_plot_histograms(adjusted_image, corrected=True, sliders=sliders)
+
+        if st.button('Correct Exposure'):
+            exposure_corrected_image = correct_exposure(image, results)
+            st.image(exposure_corrected_image, caption='Exposure Corrected Image', use_column_width=True)
 
 if __name__ == "__main__":
     main()
