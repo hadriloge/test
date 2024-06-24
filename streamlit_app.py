@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import cv2
 from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image, ImageEnhance
 
 # Function to load an image from a file
@@ -49,6 +50,34 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
             st.write("")
 
     return results
+
+# Function to plot a 3D histogram
+def plot_3d_histogram(image, results):
+    color = ('b', 'g', 'r')
+    fig = plt.figure(figsize=(15, 5))
+
+    for i, col in enumerate(color):
+        ax = fig.add_subplot(1, 3, i+1, projection='3d')
+        hist = cv2.calcHist([image], [i], None, [256], [0, 256])
+        hist = hist.flatten()
+        x = np.arange(256)
+        y = hist
+        z = np.zeros_like(x)
+
+        ax.bar3d(x, z, z, 1, 1, y, color=col, alpha=0.6)
+
+        ax.set_xlabel('Intensity')
+        ax.set_ylabel('Frequency')
+        ax.set_zlabel('Count')
+        ax.set_xlim([0, 255])
+        ax.set_ylim([0, np.max(hist)])  # Set y-axis to the max of the histogram
+
+        # Highlight first significant values
+        shift_left_value, shift_right_value = results[i]['shift_left_value'], results[i]['shift_right_value']
+        ax.bar3d(shift_left_value, 0, 0, 1, 1, hist[shift_left_value], color='black')
+        ax.bar3d(shift_right_value, 0, 0, 1, 1, hist[shift_right_value], color='black')
+
+    st.pyplot(fig)
 
 # Function to detect shifts in the histogram
 def detect_shift(hist):
@@ -119,29 +148,64 @@ def apply_extra_enhancements(image):
     return np.array(contrasted_image)
 
 def main():
+    st.set_page_config(layout="centered")
     st.title("Image Histogram Adjustment App")
 
-    # Step 1: Upload an image
-    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+    steps = ["Upload Image", "Analysis", "Adjust Significant Values", "Auto-Adjust Brightness", "Apply Extra Enhancements"]
+    
+    if "step" not in st.session_state:
+        st.session_state.step = 0
+    
+    def next_step():
+        if st.session_state.step < len(steps) - 1:
+            st.session_state.step += 1
 
-    if uploaded_file is not None:
-        image = load_image(uploaded_file)
-        st.image(image, caption='Uploaded Image', use_column_width=True)
+    def prev_step():
+        if st.session_state.step > 0:
+            st.session_state.step -= 1
+
+    st.sidebar.title("Navigation")
+    if st.sidebar.button("Previous Step"):
+        prev_step()
+    if st.sidebar.button("Next Step"):
+        next_step()
+
+    progress = st.sidebar.progress(st.session_state.step / (len(steps) - 1))
+
+    # Step 1: Upload an image
+    if st.session_state.step == 0:
+        st.header("1. Choose an image")
+        uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+
+        if uploaded_file is not None:
+            st.session_state.image = load_image(uploaded_file)
+            st.image(st.session_state.image, caption='Uploaded Image', use_column_width=True)
+
+    if "image" in st.session_state:
+        image = st.session_state.image
 
         # Step 2: Analysis
-        st.header("RGB Histograms and Analysis")
-        results = analyze_and_plot_histograms(image)
+        if st.session_state.step == 1:
+            st.header("2. RGB Histograms and Analysis")
+            st.session_state.results = analyze_and_plot_histograms(image)
+            st.header("2.1 3D RGB Histogram")
+            plot_3d_histogram(image, st.session_state.results)
 
-        # Step 3: Significant value sliders
-        st.header("Adjust RGB Curves")
-        sliders = []
-        for i, col in enumerate(('R', 'G', 'B')):
-            left_val, right_val = st.slider(f'{col} Channel', 0, 255, (results[i]['shift_left_value'] or 0, results[i]['shift_right_value'] or 255))
-            sliders.append((left_val, right_val))
+        # Step 3: Adjust Significant Values
+        if st.session_state.step == 2:
+            st.header("3. Adjust RGB Curves")
+            sliders = []
+            for i, col in enumerate(('R', 'G', 'B')):
+                left_val, right_val = st.slider(f'{col} Channel', 0, 255, (st.session_state.results[i]['shift_left_value'] or 0, st.session_state.results[i]['shift_right_value'] or 255))
+                sliders.append((left_val, right_val))
 
-        if st.button('Apply Adjustments'):
-            adjusted_image = apply_curve_adjustments(image, sliders)
-            st.image(adjusted_image, caption='Adjusted Image', use_column_width=True)
+            if st.button('Apply Adjustments'):
+                st.session_state.adjusted_image = apply_curve_adjustments(image, sliders)
+                st.image(st.session_state.adjusted_image, caption='Adjusted Image', use_column_width=True)
+                st.header("3.1 Adjusted RGB Histograms and Analysis")
+                st.session_state.results = analyze_and_plot_histograms(st.session_state.adjusted_image, corrected=True, sliders=sliders)
 
-if __name__ == "__main__":
-    main()
+        # Step 4: Auto-Adjust Brightness
+        if st.session_state.step == 3:
+            if "adjusted_image" in st.session_state:
+                st.header("4. Auto-Adjust Bright
