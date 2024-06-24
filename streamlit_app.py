@@ -142,22 +142,6 @@ def main():
         if st.button('Apply Adjustments'):
             adjusted_image = apply_curve_adjustments(image, sliders)
             st.image(adjusted_image, caption='Adjusted Image', use_column_width=True)
-            st.header("Adjusted RGB Histograms and Analysis")
-            results = analyze_and_plot_histograms(adjusted_image, corrected=True, sliders=sliders)
-
-            # Step 4: Auto-adjust brightness
-            if st.button('Auto-Adjust Brightness'):
-                brightness_corrected_image = auto_adjust_brightness(adjusted_image, results)
-                st.image(brightness_corrected_image, caption='Brightness Corrected Image', use_column_width=True)
-                st.header("Brightness Corrected RGB Histograms and Analysis")
-                results = analyze_and_plot_histograms(brightness_corrected_image, corrected=True, sliders=sliders)
-
-                # Step 5: Apply extra enhancements
-                if st.button('Apply Extra Enhancements'):
-                    enhanced_image = apply_extra_enhancements(brightness_corrected_image)
-                    st.image(enhanced_image, caption='Enhanced Image', use_column_width=True)
-                    st.header("Enhanced RGB Histograms and Analysis")
-                    analyze_and_plot_histograms(enhanced_image, corrected=True, sliders=sliders)
 
 if __name__ == "__main__":
     main()
