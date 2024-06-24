@@ -57,11 +57,15 @@ def detect_shift(hist):
     midpoint = len(hist) // 2
     left_sum = np.sum(hist[:midpoint])
     right_sum = np.sum(hist[midpoint:])
-    if left_sum > right_sum * 1.1 and right_sum > left_sum * 1.1:
+    shift_threshold = 1.1
+    left_shift = left_sum > right_sum * shift_threshold
+    right_shift = right_sum > left_sum * shift_threshold
+
+    if left_shift and right_shift:
         return "Both"
-    elif left_sum > right_sum * 1.1:
+    elif left_shift:
         return "Left"
-    elif right_sum > left_sum * 1.1:
+    elif right_shift:
         return "Right"
     else:
         return "None"
