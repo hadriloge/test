@@ -2,7 +2,6 @@ import streamlit as st
 import numpy as np
 import cv2
 from matplotlib import pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image
 
 # Function to load an image from a file
@@ -11,7 +10,7 @@ def load_image(image_file):
     return np.array(img)
 
 # Function to plot RGB histograms and analyze issues
-def analyze_and_plot_histograms(image, corrected=False):
+def analyze_and_plot_histograms(image, corrected=False, sliders=None):
     color = ('b', 'g', 'r')
     fig, ax = plt.subplots(1, 3, figsize=(15, 5))
     results = []
@@ -32,9 +31,9 @@ def analyze_and_plot_histograms(image, corrected=False):
             'spectrum_issue': spectrum_issue
         })
 
-        if corrected:
-            ax[i].axvline(x=shift_left_value, color='black', linestyle='--')
-            ax[i].axvline(x=shift_right_value, color='black', linestyle='--')
+        if corrected and sliders:
+            ax[i].axvline(x=sliders[i][0], color='black', linestyle='--')
+            ax[i].axvline(x=sliders[i][1], color='black', linestyle='--')
 
     st.pyplot(fig)
     
@@ -49,7 +48,7 @@ def analyze_and_plot_histograms(image, corrected=False):
             st.write(f"Spectrum Issue: {result['spectrum_issue']}")
             st.write("")
 
-    plot_3d_histogram(image, results)
+    return results
 
 # Function to detect shifts in the histogram
 def detect_shift(hist):
@@ -83,66 +82,19 @@ def detect_spectrum_issue(hist):
     else:
         return "None"
 
-# Function to correct RGB values
-def correct_rgb(image, results):
-    corrected_image = image.copy()
+# Function to apply curve adjustments based on slider values
+def apply_curve_adjustments(image, sliders):
+    adjusted_image = image.copy()
     color = ('b', 'g', 'r')
 
     for i in range(3):
-        shift_left_value = results[i]['shift_left_value']
-        shift_right_value = results[i]['shift_right_value']
+        left_val, right_val = sliders[i]
+        adjusted_image[:, :, i] = np.clip(np.interp(image[:, :, i], [0, left_val, right_val, 255], [0, 0, 255, 255]), 0, 255)
 
-        if shift_left_value is not None:
-            corrected_image[:, :, i] = np.clip(np.interp(image[:, :, i], [0, shift_left_value], [shift_left_value, 255]), 0, 255)
-        if shift_right_value is not None:
-            corrected_image[:, :, i] = np.clip(np.interp(image[:, :, i], [shift_right_value, 255], [0, shift_right_value]), 0, 255)
-
-    hsv_image = cv2.cvtColor(corrected_image, cv2.COLOR_RGB2HSV)
-    h, s, v = cv2.split(hsv_image)
-
-    for i in range(3):
-        if results[i]['spectrum_issue'] == "Underexposure":
-            s = cv2.add(s, 20)
-        elif results[i]['spectrum_issue'] == "Overexposure":
-            s = cv2.subtract(s, 20)
-
-    hsv_image = cv2.merge([h, s, v])
-    corrected_image = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2RGB)
-
-    return corrected_image
-
-# Function to plot 3D histogram
-def plot_3d_histogram(image, results):
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-
-    # Calculate the histogram for each channel
-    colors = ('b', 'g', 'r')
-    for i, color in enumerate(colors):
-        hist = cv2.calcHist([image], [i], None, [256], [0, 256]).flatten()
-        xs = np.arange(256)
-        ys = hist
-
-        ax.bar(xs, ys, zs=i, zdir='y', color=color, alpha=0.8, edgecolor=color)
-
-        # Plot the first significant values
-        shift_left_value = results[i]['shift_left_value']
-        shift_right_value = results[i]['shift_right_value']
-        if shift_left_value is not None:
-            ax.scatter([shift_left_value], [i], [ys[shift_left_value]], color='k', marker='o')
-        if shift_right_value is not None:
-            ax.scatter([shift_right_value], [i], [ys[shift_right_value]], color='k', marker='o')
-
-    ax.set_xlabel('Pixel Intensity')
-    ax.set_ylabel('Color Channel')
-    ax.set_zlabel('Frequency')
-    ax.set_yticks([0, 1, 2])
-    ax.set_yticklabels(['Blue', 'Green', 'Red'])
-
-    st.pyplot(fig)
+    return adjusted_image
 
 def main():
-    st.title("Image Histogram Analysis App")
+    st.title("Image Histogram Adjustment App")
 
     uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
@@ -153,11 +105,19 @@ def main():
         st.header("RGB Histograms and Analysis")
         results = analyze_and_plot_histograms(image)
 
-        if st.button('Correct RGB'):
-            corrected_image = correct_rgb(image, results)
-            st.image(corrected_image, caption='Corrected Image', use_column_width=True)
-            st.header("Corrected RGB Histograms and Analysis")
-            analyze_and_plot_histograms(corrected_image, corrected=True)
+        # Display sliders for each channel
+        st.header("Adjust RGB Curves")
+        sliders = []
+        for i, col in enumerate(('R', 'G', 'B')):
+            left_val = st.slider(f'{col} Channel Left Value', 0, 255, results[i]['shift_left_value'] or 0)
+            right_val = st.slider(f'{col} Channel Right Value', 0, 255, results[i]['shift_right_value'] or 255)
+            sliders.append((left_val, right_val))
+
+        if st.button('Apply Adjustments'):
+            adjusted_image = apply_curve_adjustments(image, sliders)
+            st.image(adjusted_image, caption='Adjusted Image', use_column_width=True)
+            st.header("Adjusted RGB Histograms and Analysis")
+            analyze_and_plot_histograms(adjusted_image, corrected=True, sliders=sliders)
 
 if __name__ == "__main__":
     main()
