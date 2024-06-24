@@ -3,7 +3,6 @@ import numpy as np
 import cv2
 from matplotlib import pyplot as plt
 from PIL import Image
-from io import BytesIO
 
 # Function to plot RGB histograms
 def plot_rgb_histograms(image):
