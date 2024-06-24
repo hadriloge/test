@@ -159,10 +159,7 @@ def main():
         if st.session_state.step == 1:
             st.header("2. RGB Histograms and Analysis")
             st.session_state.results = analyze_and_plot_histograms(image)
-
-        # Step 3: Adjust Significant Values
-        if st.session_state.step == 2:
-            st.header("3. Adjust RGB Curves")
+            st.header("2.1 Adjust RGB Curves")
             sliders = []
             for i, col in enumerate(('R', 'G', 'B')):
                 left_val, right_val = st.slider(f'{col} Channel', 0, 255, (st.session_state.results[i]['shift_left_value'] or 0, st.session_state.results[i]['shift_right_value'] or 255))
@@ -173,7 +170,7 @@ def main():
                 st.image(st.session_state.adjusted_image, caption='Adjusted Image', use_column_width=True)
                 
         # Step 4: Auto-Adjust Brightness
-        if st.session_state.step == 3:
+        if st.session_state.step == 2:
             if "adjusted_image" in st.session_state:
                 st.header("4. Auto-Adjust Brightness")
                 if st.button('Auto-Adjust Brightness'):
@@ -181,7 +178,7 @@ def main():
                     st.image(st.session_state.brightness_corrected_image, caption='Brightness Corrected Image', use_column_width=True)
 
         # Step 5: Apply Extra Enhancements
-        if st.session_state.step == 4:
+        if st.session_state.step == 3:
             if "brightness_corrected_image" in st.session_state:
                 st.header("5. Apply Extra Enhancements")
                 if st.button('Apply Extra Enhancements'):
