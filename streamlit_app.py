@@ -22,13 +22,14 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
         ax[i].set_xlim([0, 255])
         ax[i].set_ylim([0, np.max(hist)])  # Set y-axis to the max of the histogram
 
-        shift_left_value, shift_right_value = detect_shift(hist)
+        shift_left_value, shift_right_value, significant_spikes = detect_shift(hist)
         spectrum_issue = detect_spectrum_issue(hist)
 
         results.append({
             'shift_left_value': shift_left_value,
             'shift_right_value': shift_right_value,
-            'spectrum_issue': spectrum_issue
+            'spectrum_issue': spectrum_issue,
+            'significant_spikes': significant_spikes
         })
 
         if corrected and sliders:
@@ -46,6 +47,7 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
             st.write(f"First Significant Left Value: {result['shift_left_value']}")
             st.write(f"First Significant Right Value: {result['shift_right_value']}")
             st.write(f"Spectrum Issue: {result['spectrum_issue']}")
+            st.write(f"Significant Spikes: {result['significant_spikes']}")
             st.write("")
 
     return results
@@ -54,6 +56,7 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
 def detect_shift(hist):
     shift_left_value = None
     shift_right_value = None
+    significant_spikes = []
 
     # Find the first significant left value
     for i in range(len(hist)):
@@ -67,7 +70,12 @@ def detect_shift(hist):
             shift_right_value = i
             break
 
-    return shift_left_value, shift_right_value
+    # Detect significant spikes
+    for i in range(1, len(hist) - 1):
+        if hist[i] > 1.5 * hist[i-1] and hist[i] > 1.5 * hist[i+1]:
+            significant_spikes.append((i, hist[i]))
+
+    return shift_left_value, shift_right_value, significant_spikes
 
 # Function to detect spectrum issues in the histogram
 def detect_spectrum_issue(hist):
