@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from PIL import Image, ImageEnhance
+from PIL import Image
 
 # Function to load an image from a file
 def load_image(image_file):
@@ -84,25 +84,30 @@ def detect_spectrum_issue(hist):
         return "None"
 
 # Function to correct RGB values
-def correct_rgb(image):
+def correct_rgb(image, results):
     corrected_image = image.copy()
     color = ('b', 'g', 'r')
 
     for i in range(3):
-        hist = cv2.calcHist([image], [i], None, [256], [0, 256]).flatten()
-        shift_left_value, shift_right_value = detect_shift(hist)
+        shift_left_value = results[i]['shift_left_value']
+        shift_right_value = results[i]['shift_right_value']
 
-        # Apply corrections based on the shift values
-        corrected_image[:, :, i] = np.clip(np.interp(image[:, :, i], (0, shift_left_value), (shift_left_value, 255)), 0, 255)
+        if shift_left_value is not None:
+            corrected_image[:, :, i] = np.clip(np.interp(image[:, :, i], [0, shift_left_value], [shift_left_value, 255]), 0, 255)
+        if shift_right_value is not None:
+            corrected_image[:, :, i] = np.clip(np.interp(image[:, :, i], [shift_right_value, 255], [0, shift_right_value]), 0, 255)
 
-    # Detect and correct over/underexposure
-    spectrum_issue = detect_spectrum_issue(cv2.calcHist([corrected_image], [0, 1, 2], None, [256], [0, 256]).flatten())
-    if spectrum_issue == "Underexposure":
-        enhancer = ImageEnhance.Brightness(Image.fromarray(corrected_image))
-        corrected_image = np.array(enhancer.enhance(1.2))
-    elif spectrum_issue == "Overexposure":
-        enhancer = ImageEnhance.Brightness(Image.fromarray(corrected_image))
-        corrected_image = np.array(enhancer.enhance(0.8))
+    hsv_image = cv2.cvtColor(corrected_image, cv2.COLOR_RGB2HSV)
+    h, s, v = cv2.split(hsv_image)
+
+    for i in range(3):
+        if results[i]['spectrum_issue'] == "Underexposure":
+            s = cv2.add(s, 20)
+        elif results[i]['spectrum_issue'] == "Overexposure":
+            s = cv2.subtract(s, 20)
+
+    hsv_image = cv2.merge([h, s, v])
+    corrected_image = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2RGB)
 
     return corrected_image
 
@@ -146,10 +151,10 @@ def main():
         st.image(image, caption='Uploaded Image', use_column_width=True)
 
         st.header("RGB Histograms and Analysis")
-        analyze_and_plot_histograms(image)
+        results = analyze_and_plot_histograms(image)
 
         if st.button('Correct RGB'):
-            corrected_image = correct_rgb(image)
+            corrected_image = correct_rgb(image, results)
             st.image(corrected_image, caption='Corrected Image', use_column_width=True)
             st.header("Corrected RGB Histograms and Analysis")
             analyze_and_plot_histograms(corrected_image, corrected=True)
