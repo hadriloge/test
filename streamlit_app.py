@@ -21,13 +21,10 @@ def analyze_and_plot_histograms(image):
         ax[i].plot(hist, color=col)
         ax[i].set_xlim([0, 255])
 
-        clipping_left, clipping_right = detect_clipping(hist)
         shift_left, shift_right, shift_left_magnitude, shift_right_magnitude = detect_shift(hist)
         spectrum_issue = detect_spectrum_issue(hist)
 
         results.append({
-            'clipping_left': clipping_left,
-            'clipping_right': clipping_right,
             'shift_left': shift_left,
             'shift_right': shift_right,
             'shift_left_magnitude': shift_left_magnitude,
@@ -43,18 +40,10 @@ def analyze_and_plot_histograms(image):
         result = results[i]
         with cols[i]:
             st.write(f"{col.upper()} Channel Analysis")
-            st.write(f"Clipping Left: {result['clipping_left']}")
-            st.write(f"Clipping Right: {result['clipping_right']}")
             st.write(f"Shift Left: {result['shift_left']} (Magnitude: {result['shift_left_magnitude']})")
             st.write(f"Shift Right: {result['shift_right']} (Magnitude: {result['shift_right_magnitude']})")
             st.write(f"Spectrum Issue: {result['spectrum_issue']}")
             st.write("")
-
-# Function to detect clipping in the histogram
-def detect_clipping(hist):
-    left_clip = hist[0] > 0.05 * np.sum(hist)
-    right_clip = hist[-1] > 0.05 * np.sum(hist)
-    return left_clip, right_clip
 
 # Function to detect shifts in the histogram
 def detect_shift(hist):
@@ -63,13 +52,13 @@ def detect_shift(hist):
 
     # Calculate left shift magnitude
     for i in range(len(hist)):
-        if hist[i] > 0:
+        if hist[i] > 3:
             break
         shift_left_magnitude += 1
 
     # Calculate right shift magnitude
     for i in range(len(hist) - 1, -1, -1):
-        if hist[i] > 0:
+        if hist[i] > 3:
             break
         shift_right_magnitude += 1
 
