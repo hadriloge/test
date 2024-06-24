@@ -20,7 +20,6 @@ def analyze_and_plot_histograms(image):
         hist = hist.flatten()
         ax[i].plot(hist, color=col)
         ax[i].set_xlim([0, 255])
-        ax[i].set_title(f'{col.upper()} Channel')
 
         clipping = detect_clipping(hist)
         shift = detect_shift(hist)
@@ -35,7 +34,7 @@ def analyze_and_plot_histograms(image):
     for i, col in enumerate(color):
         clipping, shift, spectrum_issue = results[i]
         with cols[i]:
-            st.subheader(f"{col.upper()} Channel Analysis")
+            st.write(f"{col.upper()} Channel Analysis")
             st.write(f"Clipping: {clipping}")
             st.write(f"Shift: {shift}")
             st.write(f"Spectrum Issue: {spectrum_issue}")
