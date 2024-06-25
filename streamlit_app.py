@@ -33,6 +33,7 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
         spectrum_issue, affected_pixels = detect_spectrum_issue(image, i, hist)
         clipping_info = detect_clipping(hist)
         gamma_value = determine_gamma(hist)
+        saturation_value = determine_saturation(image[:, :, i], hist)
 
         results.append({
             'shift_left_value': shift_left_value,
@@ -41,7 +42,8 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
             'significant_spikes': significant_spikes,
             'affected_pixels': affected_pixels,
             'clipping_info': clipping_info,
-            'gamma_value': gamma_value
+            'gamma_value': gamma_value,
+            'saturation_value': saturation_value
         })
 
         if corrected and sliders:
@@ -63,6 +65,7 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
             st.write(f"Affected Pixels: {result['affected_pixels']}")
             st.write(f"Clipping Info: {result['clipping_info']}")
             st.write(f"Gamma Value: {result['gamma_value']}")
+            st.write(f"Saturation Value: {result['saturation_value']}")
 
     # Add an "About this App" section
     with st.expander("ℹ️ About this App"):
@@ -132,10 +135,17 @@ def detect_clipping(hist):
 # Function to determine gamma correction value based on histogram
 def determine_gamma(hist):
     mean_value = np.mean(hist)
+    deviation_from_center = abs(mean_value - 128) / 128  # Normalize deviation
     if mean_value < 128:
-        return 1.5  # Brighten the image
+        return 1.0 + deviation_from_center  # Brighten the image
     else:
-        return 0.7  # Darken the image
+        return 1.0 - deviation_from_center  # Darken the image
+
+# Function to determine saturation adjustment based on histogram
+def determine_saturation(channel_data, hist):
+    mean_value = np.mean(channel_data)
+    deviation_from_center = abs(mean_value - 128) / 128  # Normalize deviation
+    return 1.0 + deviation_from_center  # Increase or decrease saturation based on deviation
 
 # Function to apply curve adjustments based on slider values
 def apply_curve_adjustments(image, sliders):
@@ -173,12 +183,18 @@ def apply_extra_enhancements(image, results):
     pil_image = Image.fromarray(image)
     enhancer = ImageEnhance.Sharpness(pil_image)
     sharpened_image = enhancer.enhance(1.2)  # Increased sharpness
-    enhancer = ImageEnhance.Contrast(sharpened_image)
+
+    # Determine average saturation adjustment
+    avg_saturation_value = np.mean([result['saturation_value'] for result in results])
+    enhancer = ImageEnhance.Color(sharpened_image)
+    saturated_image = enhancer.enhance(avg_saturation_value)
+
+    enhancer = ImageEnhance.Contrast(saturated_image)
     contrasted_image = enhancer.enhance(1.2)  # Increased contrast
 
     # Apply gamma correction based on analysis
-    gamma_value = np.mean([result['gamma_value'] for result in results])
-    gamma_corrected_image = apply_gamma_correction(np.array(contrasted_image), gamma=gamma_value)
+    avg_gamma_value = np.mean([result['gamma_value'] for result in results])
+    gamma_corrected_image = apply_gamma_correction(np.array(contrasted_image), gamma=avg_gamma_value)
 
     return gamma_corrected_image
 
