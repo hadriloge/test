@@ -126,15 +126,18 @@ def apply_curve_adjustments(image, sliders):
     return adjusted_image
 
 # Function to automatically adjust brightness based on analysis
-def auto_adjust_brightness(image, results, underexposure_correction, overexposure_correction):
+def auto_adjust_brightness(image, results):
     hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
     h, s, v = cv2.split(hsv_image)
 
+    underexposure_adjustment = np.percentile(v, 5)  # Adjust based on the 5th percentile for underexposure
+    overexposure_adjustment = 255 - np.percentile(v, 95)  # Adjust based on the 95th percentile for overexposure
+
     for i, result in enumerate(results):
         if result['spectrum_issue'] == "Underexposure":
-            v = cv2.add(v, underexposure_correction)
+            v = cv2.add(v, underexposure_adjustment)
         elif result['spectrum_issue'] == "Overexposure":
-            v = cv2.subtract(v, overexposure_correction)
+            v = cv2.subtract(v, overexposure_adjustment)
 
     hsv_image = cv2.merge([h, s, v])
     corrected_image = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2RGB)
@@ -227,10 +230,8 @@ def main():
         if st.session_state.step == 4:
             if "adjusted_image" in st.session_state:
                 st.header("5. Auto-Adjust Brightness")
-                underexposure_correction = st.slider("Underexposure Correction Value", 0, 100, 20)
-                overexposure_correction = st.slider("Overexposure Correction Value", 0, 100, 20)
                 if st.button('Auto-Adjust Brightness'):
-                    st.session_state.brightness_corrected_image = auto_adjust_brightness(st.session_state.adjusted_image, st.session_state.results, underexposure_correction, overexposure_correction)
+                    st.session_state.brightness_corrected_image = auto_adjust_brightness(st.session_state.adjusted_image, st.session_state.results)
                     st.image(st.session_state.brightness_corrected_image, caption='Brightness Corrected Image', use_column_width=True)
 
         # Step 6: Apply Extra Enhancements
