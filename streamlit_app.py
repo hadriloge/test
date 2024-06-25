@@ -30,14 +30,13 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
         ax[i].set_ylim([0, max_hist_value])  # Set y-axis to the max histogram value
 
         shift_left_value, shift_right_value, significant_spikes = detect_shift(hist)
-        spectrum_issue, affected_pixels = detect_spectrum_issue(image, i, hist)
+        spectrum_issue = detect_spectrum_issue(hist)
 
         results.append({
             'shift_left_value': shift_left_value,
             'shift_right_value': shift_right_value,
             'spectrum_issue': spectrum_issue,
-            'significant_spikes': significant_spikes,
-            'affected_pixels': affected_pixels
+            'significant_spikes': significant_spikes
         })
 
         if corrected and sliders:
@@ -56,7 +55,7 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
             st.write(f"First Significant Right Value: {result['shift_right_value']}")
             st.write(f"Spectrum Issue: {result['spectrum_issue']}")
             st.write(f"Significant Spikes: {result['significant_spikes']}")
-            st.write(f"Affected Pixels: {result['affected_pixels']}")
+            st.write("")
 
     # Add an "About this App" section
     with st.expander("ℹ️ About this App"):
@@ -102,20 +101,18 @@ def detect_shift(hist):
 
     return shift_left_value, shift_right_value, significant_spikes
 
-# Function to detect spectrum issues in the histogram and identify affected pixels
-def detect_spectrum_issue(image, channel, hist):
+# Function to detect spectrum issues in the histogram
+def detect_spectrum_issue(hist):
     low_threshold = 0.05 * np.max(hist)
     high_threshold = 0.95 * np.max(hist)
     low_spectrum = np.sum(hist < low_threshold)
     high_spectrum = np.sum(hist > high_threshold)
     if low_spectrum > 0.5 * len(hist):
-        affected_pixels = np.sum(image[:, :, channel] < low_threshold)
-        return "Underexposure", affected_pixels
+        return "Underexposure"
     elif high_spectrum > 0.5 * len(hist):
-        affected_pixels = np.sum(image[:, :, channel] > high_threshold)
-        return "Overexposure", affected_pixels
+        return "Overexposure"
     else:
-        return "None", 0
+        return "None"
 
 # Function to apply curve adjustments based on slider values
 def apply_curve_adjustments(image, sliders):
