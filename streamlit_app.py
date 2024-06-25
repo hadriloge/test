@@ -10,24 +10,16 @@ def load_image(image_file):
     return np.array(img)
 
 # Function to plot RGB histograms and analyze issues
-def analyze_and_plot_histograms(image, corrected=False, sliders=None):
+def analyze_and_plot_histograms(image):
     color = ('b', 'g', 'r')
     fig, ax = plt.subplots(1, 3, figsize=(15, 5))
     results = []
 
-    max_hist_value = 0  # Initialize the max histogram value to set y-axis limits
-
     for i, col in enumerate(color):
         hist = cv2.calcHist([image], [i], None, [256], [0, 256])
         hist = hist.flatten()
-        max_hist_value = max(max_hist_value, np.max(hist))  # Update the max histogram value
-
-    for i, col in enumerate(color):
-        hist = cv2.calcHist([image], [i], None, [256], [0, 256])
-        hist = hist.flatten()
-        ax[i].bar(range(256), hist, color=col)
+        ax[i].plot(hist, color=col)
         ax[i].set_xlim([0, 255])
-        ax[i].set_ylim([0, max_hist_value])  # Set y-axis to the max histogram value
 
         shift_left_value, shift_right_value, significant_spikes = detect_shift(hist)
         spectrum_issue = detect_spectrum_issue(hist)
@@ -39,13 +31,9 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
             'significant_spikes': significant_spikes
         })
 
-        if corrected and sliders:
-            ax[i].axvline(x=sliders[i][0], color='black', linestyle='--')
-            ax[i].axvline(x=sliders[i][1], color='black', linestyle='--')
-
     st.pyplot(fig)
-    
-    # Use columns to display the analysis under each histogram
+
+    # Display analysis
     cols = st.columns(3)
     for i, col in enumerate(color):
         result = results[i]
@@ -57,19 +45,6 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
             st.write(f"Significant Spikes: {result['significant_spikes']}")
             st.write("")
 
-    # Add an "About this App" section
-    with st.expander("ℹ️ About this App"):
-        st.write("""
-            This app allows you to analyze and adjust the histograms of an uploaded image. 
-            It includes the following steps:
-            - **Upload Image**: Choose an image file to upload.
-            - **Analysis**: View the RGB histograms and analyze for significant shifts and spikes.
-            - **Remove Spikes**: Automatically detect and remove significant spikes in the histogram.
-            - **Adjust Significant Values**: Manually adjust the RGB curves using sliders.
-            - **Auto-Adjust Brightness**: Automatically adjust the brightness based on the analysis.
-            - **Apply Extra Enhancements**: Apply additional enhancements like sharpening and contrast adjustment.
-        """)
-    
     return results
 
 # Function to detect shifts and significant spikes in the histogram
@@ -78,24 +53,21 @@ def detect_shift(hist):
     shift_right_value = None
     significant_spikes = []
 
-    # Find the first significant left value
     for i in range(len(hist)):
-        if hist[i] > 3000:  # Threshold for a significant left shift
+        if hist[i] > 3000:
             shift_left_value = i
             break
 
-    # Find the first significant right value
     for i in range(len(hist) - 1, -1, -1):
-        if hist[i] > 3000:  # Threshold for a significant right shift
+        if hist[i] > 3000 and i != 255:
             shift_right_value = i
             break
 
-    # Detect significant spikes based on change from one bin to another, within 25 bins from the extremities
-    threshold = 0.1 * np.max(hist)  # Threshold for spike detection
+    threshold = 0.1 * np.max(hist)
     for i in range(1, 25):
         if abs(hist[i] - hist[i - 1]) > threshold and hist[i] > 3000:
             significant_spikes.append((i, hist[i]))
-    for i in range(len(hist) - 25, len(hist)):
+    for i in range(len(hist) - 25, len(hist) - 1):
         if abs(hist[i] - hist[i - 1]) > threshold and hist[i] > 3000:
             significant_spikes.append((i, hist[i]))
 
@@ -114,6 +86,27 @@ def detect_spectrum_issue(hist):
     else:
         return "None"
 
+# Function for histogram equalization
+def equalize_histogram(image):
+    img_yuv = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
+    img_yuv[:, :, 0] = cv2.equalizeHist(img_yuv[:, :, 0])
+    return cv2.cvtColor(img_yuv, cv2.COLOR_YUV2RGB)
+
+# Function for gamma correction
+def adjust_gamma(image, gamma=1.0):
+    inv_gamma = 1.0 / gamma
+    table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
+    return cv2.LUT(image, table)
+
+# Function for white balance correction
+def white_balance(image):
+    result = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+    avg_a = np.average(result[:, :, 1])
+    avg_b = np.average(result[:, :, 2])
+    result[:, :, 1] = result[:, :, 1] - ((avg_a - 128) * (result[:, :, 0] / 255.0) * 1.1)
+    result[:, :, 2] = result[:, :, 2] - ((avg_b - 128) * (result[:, :, 0] / 255.0) * 1.1)
+    return cv2.cvtColor(result, cv2.COLOR_LAB2BGR)
+
 # Function to apply curve adjustments based on slider values
 def apply_curve_adjustments(image, sliders):
     adjusted_image = image.copy()
@@ -124,25 +117,6 @@ def apply_curve_adjustments(image, sliders):
         adjusted_image[:, :, i] = np.clip(np.interp(image[:, :, i], [0, left_val, right_val, 255], [0, 0, 255, 255]), 0, 255)
 
     return adjusted_image
-
-# Function to automatically adjust brightness based on analysis
-def auto_adjust_brightness(image, results):
-    hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
-    h, s, v = cv2.split(hsv_image)
-
-    underexposure_adjustment = np.percentile(v, 5)  # Adjust based on the 5th percentile for underexposure
-    overexposure_adjustment = 255 - np.percentile(v, 95)  # Adjust based on the 95th percentile for overexposure
-
-    for i, result in enumerate(results):
-        if result['spectrum_issue'] == "Underexposure":
-            v = cv2.add(v, underexposure_adjustment)
-        elif result['spectrum_issue'] == "Overexposure":
-            v = cv2.subtract(v, overexposure_adjustment)
-
-    hsv_image = cv2.merge([h, s, v])
-    corrected_image = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2RGB)
-
-    return corrected_image
 
 # Function to apply extra enhancements (sharpening and contrast)
 def apply_extra_enhancements(image, sharpness_factor, contrast_factor):
@@ -169,11 +143,11 @@ def main():
     st.set_page_config(layout="centered")
     st.title("Image Histogram Adjustment App")
 
-    steps = ["Upload Image", "Analysis", "Remove Spikes", "Adjust Significant Values", "Auto-Adjust Brightness", "Apply Extra Enhancements"]
-    
+    steps = ["Upload Image", "Analysis", "Remove Spikes", "Adjust Significant Values", "Equalize Histogram", "Gamma Correction", "White Balance", "Apply Extra Enhancements"]
+
     if "step" not in st.session_state:
         st.session_state.step = 0
-    
+
     def next_step():
         if st.session_state.step < len(steps) - 1:
             st.session_state.step += 1
@@ -226,22 +200,39 @@ def main():
                 st.session_state.adjusted_image = apply_curve_adjustments(st.session_state.spike_removed_image, sliders)
                 st.image(st.session_state.adjusted_image, caption='Adjusted Image', use_column_width=True)
 
-        # Step 5: Auto-Adjust Brightness
+        # Step 5: Equalize Histogram
         if st.session_state.step == 4:
             if "adjusted_image" in st.session_state:
-                st.header("5. Auto-Adjust Brightness")
-                if st.button('Auto-Adjust Brightness'):
-                    st.session_state.brightness_corrected_image = auto_adjust_brightness(st.session_state.adjusted_image, st.session_state.results)
-                    st.image(st.session_state.brightness_corrected_image, caption='Brightness Corrected Image', use_column_width=True)
+                st.header("5. Equalize Histogram")
+                if st.button('Equalize Histogram'):
+                    st.session_state.equalized_image = equalize_histogram(st.session_state.adjusted_image)
+                    st.image(st.session_state.equalized_image, caption='Equalized Image', use_column_width=True)
 
-        # Step 6: Apply Extra Enhancements
+        # Step 6: Gamma Correction
         if st.session_state.step == 5:
-            if "brightness_corrected_image" in st.session_state:
-                st.header("6. Apply Extra Enhancements")
+            if "equalized_image" in st.session_state:
+                st.header("6. Gamma Correction")
+                gamma = st.slider("Gamma Value", 0.1, 3.0, 1.0)
+                if st.button('Apply Gamma Correction'):
+                    st.session_state.gamma_corrected_image = adjust_gamma(st.session_state.equalized_image, gamma)
+                    st.image(st.session_state.gamma_corrected_image, caption='Gamma Corrected Image', use_column_width=True)
+
+        # Step 7: White Balance
+        if st.session_state.step == 6:
+            if "gamma_corrected_image" in st.session_state:
+                st.header("7. White Balance Correction")
+                if st.button('Apply White Balance'):
+                    st.session_state.white_balanced_image = white_balance(st.session_state.gamma_corrected_image)
+                    st.image(st.session_state.white_balanced_image, caption='White Balanced Image', use_column_width=True)
+
+        # Step 8: Apply Extra Enhancements
+        if st.session_state.step == 7:
+            if "white_balanced_image" in st.session_state:
+                st.header("8. Apply Extra Enhancements")
                 sharpness_factor = st.slider("Sharpness Factor", 1.0, 2.0, 1.1)
                 contrast_factor = st.slider("Contrast Factor", 1.0, 2.0, 1.1)
                 if st.button('Apply Extra Enhancements'):
-                    enhanced_image = apply_extra_enhancements(st.session_state.brightness_corrected_image, sharpness_factor, contrast_factor)
+                    enhanced_image = apply_extra_enhancements(st.session_state.white_balanced_image, sharpness_factor, contrast_factor)
                     st.image(enhanced_image, caption='Enhanced Image', use_column_width=True)
 
 if __name__ == "__main__":
