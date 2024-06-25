@@ -80,18 +80,18 @@ def detect_shift(hist):
 
     # Find the first significant left value
     for i in range(len(hist)):
-        if hist[i] > 3000:
+        if hist[i] > 3000:  # Threshold for a significant left shift
             shift_left_value = i
             break
 
     # Find the first significant right value
     for i in range(len(hist) - 1, -1, -1):
-        if hist[i] > 3000:
+        if hist[i] > 3000:  # Threshold for a significant right shift
             shift_right_value = i
             break
 
     # Detect significant spikes based on change from one bin to another, within 25 bins from the extremities
-    threshold = 0.1 * np.max(hist)  # Lowering the threshold for spike detection
+    threshold = 0.1 * np.max(hist)  # Threshold for spike detection
     for i in range(1, 25):
         if abs(hist[i] - hist[i - 1]) > threshold and hist[i] > 3000:
             significant_spikes.append((i, hist[i]))
@@ -126,15 +126,15 @@ def apply_curve_adjustments(image, sliders):
     return adjusted_image
 
 # Function to automatically adjust brightness based on analysis
-def auto_adjust_brightness(image, results):
+def auto_adjust_brightness(image, results, underexposure_correction, overexposure_correction):
     hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
     h, s, v = cv2.split(hsv_image)
 
     for i, result in enumerate(results):
         if result['spectrum_issue'] == "Underexposure":
-            v = cv2.add(v, 20)
+            v = cv2.add(v, underexposure_correction)
         elif result['spectrum_issue'] == "Overexposure":
-            v = cv2.subtract(v, 20)
+            v = cv2.subtract(v, overexposure_correction)
 
     hsv_image = cv2.merge([h, s, v])
     corrected_image = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2RGB)
@@ -142,12 +142,12 @@ def auto_adjust_brightness(image, results):
     return corrected_image
 
 # Function to apply extra enhancements (sharpening and contrast)
-def apply_extra_enhancements(image):
+def apply_extra_enhancements(image, sharpness_factor, contrast_factor):
     pil_image = Image.fromarray(image)
     enhancer = ImageEnhance.Sharpness(pil_image)
-    sharpened_image = enhancer.enhance(1.1)
+    sharpened_image = enhancer.enhance(sharpness_factor)
     enhancer = ImageEnhance.Contrast(sharpened_image)
-    contrasted_image = enhancer.enhance(1.1)
+    contrasted_image = enhancer.enhance(contrast_factor)
     return np.array(contrasted_image)
 
 # Function to remove spikes in the histogram
@@ -227,16 +227,20 @@ def main():
         if st.session_state.step == 4:
             if "adjusted_image" in st.session_state:
                 st.header("5. Auto-Adjust Brightness")
+                underexposure_correction = st.slider("Underexposure Correction Value", 0, 100, 20)
+                overexposure_correction = st.slider("Overexposure Correction Value", 0, 100, 20)
                 if st.button('Auto-Adjust Brightness'):
-                    st.session_state.brightness_corrected_image = auto_adjust_brightness(st.session_state.adjusted_image, st.session_state.results)
+                    st.session_state.brightness_corrected_image = auto_adjust_brightness(st.session_state.adjusted_image, st.session_state.results, underexposure_correction, overexposure_correction)
                     st.image(st.session_state.brightness_corrected_image, caption='Brightness Corrected Image', use_column_width=True)
 
         # Step 6: Apply Extra Enhancements
         if st.session_state.step == 5:
             if "brightness_corrected_image" in st.session_state:
                 st.header("6. Apply Extra Enhancements")
+                sharpness_factor = st.slider("Sharpness Factor", 1.0, 2.0, 1.1)
+                contrast_factor = st.slider("Contrast Factor", 1.0, 2.0, 1.1)
                 if st.button('Apply Extra Enhancements'):
-                    enhanced_image = apply_extra_enhancements(st.session_state.brightness_corrected_image)
+                    enhanced_image = apply_extra_enhancements(st.session_state.brightness_corrected_image, sharpness_factor, contrast_factor)
                     st.image(enhanced_image, caption='Enhanced Image', use_column_width=True)
 
 if __name__ == "__main__":
