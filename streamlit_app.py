@@ -31,19 +31,13 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
 
         shift_left_value, shift_right_value, significant_spikes = detect_shift(hist)
         spectrum_issue, affected_pixels = detect_spectrum_issue(image, i, hist)
-        clipping_info = detect_clipping(hist)
-        gamma_value = determine_gamma(hist)
-        saturation_value = determine_saturation(image[:, :, i], hist)
 
         results.append({
             'shift_left_value': shift_left_value,
             'shift_right_value': shift_right_value,
             'spectrum_issue': spectrum_issue,
             'significant_spikes': significant_spikes,
-            'affected_pixels': affected_pixels,
-            'clipping_info': clipping_info,
-            'gamma_value': gamma_value,
-            'saturation_value': saturation_value
+            'affected_pixels': affected_pixels
         })
 
         if corrected and sliders:
@@ -63,9 +57,6 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
             st.write(f"Spectrum Issue: {result['spectrum_issue']}")
             st.write(f"Significant Spikes: {result['significant_spikes']}")
             st.write(f"Affected Pixels: {result['affected_pixels']}")
-            st.write(f"Clipping Info: {result['clipping_info']}")
-            st.write(f"Gamma Value: {result['gamma_value']}")
-            st.write(f"Saturation Value: {result['saturation_value']}")
 
     # Add an "About this App" section
     with st.expander("ℹ️ About this App"):
@@ -126,27 +117,6 @@ def detect_spectrum_issue(image, channel, hist):
     else:
         return "None", 0
 
-# Function to detect clipping in the histogram
-def detect_clipping(hist):
-    clipped_min = np.sum(hist[:1])
-    clipped_max = np.sum(hist[-1:])
-    return {'clipped_min': clipped_min, 'clipped_max': clipped_max}
-
-# Function to determine gamma correction value based on histogram
-def determine_gamma(hist):
-    mean_value = np.mean(hist)
-    deviation_from_center = abs(mean_value - 128) / 128  # Normalize deviation
-    if mean_value < 128:
-        return 1.0 + deviation_from_center * 0.5  # Brighten the image subtly
-    else:
-        return 1.0 - deviation_from_center * 0.5  # Darken the image subtly
-
-# Function to determine saturation adjustment based on histogram
-def determine_saturation(channel_data, hist):
-    mean_value = np.mean(channel_data)
-    deviation_from_center = abs(mean_value - 128) / 128  # Normalize deviation
-    return 1.0 + deviation_from_center * 0.2  # Subtle saturation adjustment
-
 # Function to apply curve adjustments based on slider values
 def apply_curve_adjustments(image, sliders):
     adjusted_image = image.copy()
@@ -159,50 +129,29 @@ def apply_curve_adjustments(image, sliders):
     return adjusted_image
 
 # Function to automatically adjust brightness based on analysis
-def auto_adjust_brightness(image, results):
+def auto_adjust_brightness(image, results, underexposure_correction, overexposure_correction):
     hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
     h, s, v = cv2.split(hsv_image)
 
-    total_pixels = image.shape[0] * image.shape[1]
     for i, result in enumerate(results):
-        affected_ratio = result['affected_pixels'] / total_pixels
         if result['spectrum_issue'] == "Underexposure":
-            adjustment_value = int(affected_ratio * 50)  # Scale adjustment based on affected ratio, more subtle
-            v = cv2.add(v, adjustment_value)
+            v = cv2.add(v, underexposure_correction)
         elif result['spectrum_issue'] == "Overexposure":
-            adjustment_value = int(affected_ratio * 50)  # Scale adjustment based on affected ratio, more subtle
-            v = cv2.subtract(v, adjustment_value)
+            v = cv2.subtract(v, overexposure_correction)
 
     hsv_image = cv2.merge([h, s, v])
     corrected_image = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2RGB)
 
     return corrected_image
 
-# Function to apply extra enhancements (sharpening, contrast, and gamma correction)
-def apply_extra_enhancements(image, results):
+# Function to apply extra enhancements (sharpening and contrast)
+def apply_extra_enhancements(image, sharpness_factor, contrast_factor):
     pil_image = Image.fromarray(image)
     enhancer = ImageEnhance.Sharpness(pil_image)
-    sharpened_image = enhancer.enhance(1.1)  # Subtle sharpness
-
-    # Determine average saturation adjustment
-    avg_saturation_value = np.mean([result['saturation_value'] for result in results])
-    enhancer = ImageEnhance.Color(sharpened_image)
-    saturated_image = enhancer.enhance(avg_saturation_value)
-
-    enhancer = ImageEnhance.Contrast(saturated_image)
-    contrasted_image = enhancer.enhance(1.1)  # Subtle contrast
-
-    # Apply gamma correction based on analysis
-    avg_gamma_value = np.mean([result['gamma_value'] for result in results])
-    gamma_corrected_image = apply_gamma_correction(np.array(contrasted_image), gamma=avg_gamma_value)
-
-    return gamma_corrected_image
-
-# Function to apply gamma correction
-def apply_gamma_correction(image, gamma=1.0):
-    inv_gamma = 1.0 / gamma
-    table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in range(256)]).astype("uint8")
-    return cv2.LUT(image, table)
+    sharpened_image = enhancer.enhance(sharpness_factor)
+    enhancer = ImageEnhance.Contrast(sharpened_image)
+    contrasted_image = enhancer.enhance(contrast_factor)
+    return np.array(contrasted_image)
 
 # Function to remove spikes in the histogram
 def remove_spikes(image, results):
@@ -281,16 +230,20 @@ def main():
         if st.session_state.step == 4:
             if "adjusted_image" in st.session_state:
                 st.header("5. Auto-Adjust Brightness")
+                underexposure_correction = st.slider("Underexposure Correction Value", 0, 100, 20)
+                overexposure_correction = st.slider("Overexposure Correction Value", 0, 100, 20)
                 if st.button('Auto-Adjust Brightness'):
-                    st.session_state.brightness_corrected_image = auto_adjust_brightness(st.session_state.adjusted_image, st.session_state.results)
+                    st.session_state.brightness_corrected_image = auto_adjust_brightness(st.session_state.adjusted_image, st.session_state.results, underexposure_correction, overexposure_correction)
                     st.image(st.session_state.brightness_corrected_image, caption='Brightness Corrected Image', use_column_width=True)
 
         # Step 6: Apply Extra Enhancements
         if st.session_state.step == 5:
             if "brightness_corrected_image" in st.session_state:
                 st.header("6. Apply Extra Enhancements")
+                sharpness_factor = st.slider("Sharpness Factor", 1.0, 2.0, 1.1)
+                contrast_factor = st.slider("Contrast Factor", 1.0, 2.0, 1.1)
                 if st.button('Apply Extra Enhancements'):
-                    enhanced_image = apply_extra_enhancements(st.session_state.brightness_corrected_image, st.session_state.results)
+                    enhanced_image = apply_extra_enhancements(st.session_state.brightness_corrected_image, sharpness_factor, contrast_factor)
                     st.image(enhanced_image, caption='Enhanced Image', use_column_width=True)
 
 if __name__ == "__main__":
