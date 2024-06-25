@@ -137,15 +137,15 @@ def determine_gamma(hist):
     mean_value = np.mean(hist)
     deviation_from_center = abs(mean_value - 128) / 128  # Normalize deviation
     if mean_value < 128:
-        return 1.0 + deviation_from_center  # Brighten the image
+        return 1.0 + deviation_from_center * 0.5  # Brighten the image subtly
     else:
-        return 1.0 - deviation_from_center  # Darken the image
+        return 1.0 - deviation_from_center * 0.5  # Darken the image subtly
 
 # Function to determine saturation adjustment based on histogram
 def determine_saturation(channel_data, hist):
     mean_value = np.mean(channel_data)
     deviation_from_center = abs(mean_value - 128) / 128  # Normalize deviation
-    return 1.0 + deviation_from_center  # Increase or decrease saturation based on deviation
+    return 1.0 + deviation_from_center * 0.2  # Subtle saturation adjustment
 
 # Function to apply curve adjustments based on slider values
 def apply_curve_adjustments(image, sliders):
@@ -167,10 +167,10 @@ def auto_adjust_brightness(image, results):
     for i, result in enumerate(results):
         affected_ratio = result['affected_pixels'] / total_pixels
         if result['spectrum_issue'] == "Underexposure":
-            adjustment_value = int(affected_ratio * 100)  # Scale adjustment based on affected ratio
+            adjustment_value = int(affected_ratio * 50)  # Scale adjustment based on affected ratio, more subtle
             v = cv2.add(v, adjustment_value)
         elif result['spectrum_issue'] == "Overexposure":
-            adjustment_value = int(affected_ratio * 100)  # Scale adjustment based on affected ratio
+            adjustment_value = int(affected_ratio * 50)  # Scale adjustment based on affected ratio, more subtle
             v = cv2.subtract(v, adjustment_value)
 
     hsv_image = cv2.merge([h, s, v])
@@ -182,7 +182,7 @@ def auto_adjust_brightness(image, results):
 def apply_extra_enhancements(image, results):
     pil_image = Image.fromarray(image)
     enhancer = ImageEnhance.Sharpness(pil_image)
-    sharpened_image = enhancer.enhance(1.2)  # Increased sharpness
+    sharpened_image = enhancer.enhance(1.1)  # Subtle sharpness
 
     # Determine average saturation adjustment
     avg_saturation_value = np.mean([result['saturation_value'] for result in results])
@@ -190,7 +190,7 @@ def apply_extra_enhancements(image, results):
     saturated_image = enhancer.enhance(avg_saturation_value)
 
     enhancer = ImageEnhance.Contrast(saturated_image)
-    contrasted_image = enhancer.enhance(1.2)  # Increased contrast
+    contrasted_image = enhancer.enhance(1.1)  # Subtle contrast
 
     # Apply gamma correction based on analysis
     avg_gamma_value = np.mean([result['gamma_value'] for result in results])
