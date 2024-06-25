@@ -30,16 +30,13 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
         ax[i].set_ylim([0, max_hist_value])  # Set y-axis to the max histogram value
 
         shift_left_value, shift_right_value, significant_spikes = detect_shift(hist)
-        spectrum_issue, affected_pixels = detect_spectrum_issue(image, i, hist)
-        clipping_info = detect_clipping(hist)
+        spectrum_issue = detect_spectrum_issue(hist)
 
         results.append({
             'shift_left_value': shift_left_value,
             'shift_right_value': shift_right_value,
             'spectrum_issue': spectrum_issue,
-            'significant_spikes': significant_spikes,
-            'affected_pixels': affected_pixels,
-            'clipping_info': clipping_info
+            'significant_spikes': significant_spikes
         })
 
         if corrected and sliders:
@@ -58,8 +55,7 @@ def analyze_and_plot_histograms(image, corrected=False, sliders=None):
             st.write(f"First Significant Right Value: {result['shift_right_value']}")
             st.write(f"Spectrum Issue: {result['spectrum_issue']}")
             st.write(f"Significant Spikes: {result['significant_spikes']}")
-            st.write(f"Affected Pixels: {result['affected_pixels']}")
-            st.write(f"Clipping Info: {result['clipping_info']}")
+            st.write("")
 
     # Add an "About this App" section
     with st.expander("ℹ️ About this App"):
@@ -84,18 +80,18 @@ def detect_shift(hist):
 
     # Find the first significant left value
     for i in range(len(hist)):
-        if hist[i] > 3000:  # Threshold for a significant left shift
+        if hist[i] > 3000:
             shift_left_value = i
             break
 
     # Find the first significant right value
     for i in range(len(hist) - 1, -1, -1):
-        if hist[i] > 3000:  # Threshold for a significant right shift
+        if hist[i] > 3000:
             shift_right_value = i
             break
 
     # Detect significant spikes based on change from one bin to another, within 25 bins from the extremities
-    threshold = 0.1 * np.max(hist)  # Threshold for spike detection
+    threshold = 0.1 * np.max(hist)  # Lowering the threshold for spike detection
     for i in range(1, 25):
         if abs(hist[i] - hist[i - 1]) > threshold and hist[i] > 3000:
             significant_spikes.append((i, hist[i]))
@@ -105,25 +101,18 @@ def detect_shift(hist):
 
     return shift_left_value, shift_right_value, significant_spikes
 
-# Function to detect spectrum issues in the histogram and identify affected pixels
-def detect_spectrum_issue(image, channel, hist):
+# Function to detect spectrum issues in the histogram
+def detect_spectrum_issue(hist):
     low_threshold = 0.05 * np.max(hist)
     high_threshold = 0.95 * np.max(hist)
     low_spectrum = np.sum(hist < low_threshold)
     high_spectrum = np.sum(hist > high_threshold)
     if low_spectrum > 0.5 * len(hist):
-        affected_pixels = np.sum(image[:, :, channel] < low_threshold)
-        return "Underexposure", affected_pixels
+        return "Underexposure"
     elif high_spectrum > 0.5 * len(hist):
-        affected_pixels = np.sum(image[:, :, channel] > high_threshold)
-        return "Overexposure", affected_pixels
+        return "Overexposure"
     else:
-        return "None", 0
-
-# Function to detect clipping in the histogram
-def detect_clipping(hist):
-    clipping_info = {'clipped_min': hist[0], 'clipped_max': hist[-1]}
-    return clipping_info
+        return "None"
 
 # Function to apply curve adjustments based on slider values
 def apply_curve_adjustments(image, sliders):
@@ -141,39 +130,25 @@ def auto_adjust_brightness(image, results):
     hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
     h, s, v = cv2.split(hsv_image)
 
-    total_pixels = image.shape[0] * image.shape[1]
     for i, result in enumerate(results):
-        affected_ratio = result['affected_pixels'] / total_pixels
         if result['spectrum_issue'] == "Underexposure":
-            adjustment_value = int(affected_ratio * 100)  # Scale adjustment based on affected ratio
-            v = cv2.add(v, adjustment_value)
+            v = cv2.add(v, 20)
         elif result['spectrum_issue'] == "Overexposure":
-            adjustment_value = int(affected_ratio * 100)  # Scale adjustment based on affected ratio
-            v = cv2.subtract(v, adjustment_value)
+            v = cv2.subtract(v, 20)
 
     hsv_image = cv2.merge([h, s, v])
     corrected_image = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2RGB)
 
     return corrected_image
 
-# Function to apply extra enhancements (sharpening, contrast, and gamma correction)
+# Function to apply extra enhancements (sharpening and contrast)
 def apply_extra_enhancements(image):
     pil_image = Image.fromarray(image)
     enhancer = ImageEnhance.Sharpness(pil_image)
-    sharpened_image = enhancer.enhance(1.2)  # Increased sharpness
+    sharpened_image = enhancer.enhance(1.1)
     enhancer = ImageEnhance.Contrast(sharpened_image)
-    contrasted_image = enhancer.enhance(1.2)  # Increased contrast
-
-    # Apply gamma correction
-    gamma_corrected_image = apply_gamma_correction(np.array(contrasted_image), gamma=1.1)
-
-    return gamma_corrected_image
-
-# Function to apply gamma correction
-def apply_gamma_correction(image, gamma=1.0):
-    inv_gamma = 1.0 / gamma
-    table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in range(256)]).astype("uint8")
-    return cv2.LUT(image, table)
+    contrasted_image = enhancer.enhance(1.1)
+    return np.array(contrasted_image)
 
 # Function to remove spikes in the histogram
 def remove_spikes(image, results):
